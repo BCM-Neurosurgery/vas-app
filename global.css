@@ -1,3 +1,47 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Web-specific styles for cross-platform components */
+@media (min-width: 768px) {
+  /* Ensure modals are properly sized on larger screens */
+  .max-w-md {
+    max-width: 28rem;
+  }
+  
+  /* Better spacing for web */
+  .p-5 {
+    padding: 1.25rem;
+  }
+  
+  /* Improved web button hover states */
+  button:hover, [role="button"]:hover {
+    opacity: 0.9;
+  }
+}
+
+/* Ensure proper z-index stacking on web */
+.z-50 {
+  z-index: 50;
+}
+
+/* Web-specific modal backdrop */
+.bg-black\/50 {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Ensure header elements are visible on web */
+header {
+  position: relative;
+  z-index: 10;
+}
+
+/* Web modal backdrop cursor */
+.modal-backdrop {
+  cursor: pointer;
+}
+
+/* Web modal content cursor */
+.modal-content {
+  cursor: default;
+}

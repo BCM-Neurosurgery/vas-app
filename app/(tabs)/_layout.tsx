@@ -1,18 +1,33 @@
-import { Tabs } from 'expo-router';
-import React, { useState } from 'react';
-import { Platform, TouchableOpacity } from 'react-native';
-import SettingsDrawer from '@/components/SettingsDrawer';
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { Tabs } from 'expo-router';
+import React, { useState } from 'react';
+import { Platform, TouchableOpacity } from 'react-native';
+import SettingsDrawer from '../../components/SettingsDrawer';
 
 interface Patient {
   id: string;
   name: string;
   isLatest?: boolean;
 }
+
+// Move SettingsButton outside to avoid re-creation issues
+const SettingsButton = ({ onPress, color }: { onPress: () => void; color: string }) => (
+  <TouchableOpacity
+    onPress={onPress}
+    className="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+    style={{ 
+      marginRight: 15,
+      padding: Platform.OS === 'web' ? 8 : 4,
+      borderRadius: Platform.OS === 'web' ? 8 : 0,
+    }}
+  >
+    <IconSymbol name="gearshape.fill" size={24} color={color} />
+  </TouchableOpacity>
+);
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -23,19 +38,13 @@ export default function TabLayout() {
     isLatest: true,
   });
 
-  const SettingsButton = () => (
-    <TouchableOpacity
-      onPress={() => setShowSettings(true)}
-      style={{ marginRight: 15 }}
-    >
-      <IconSymbol name="gearshape.fill" size={24} color={Colors[colorScheme ?? 'light'].tint} />
-    </TouchableOpacity>
-  );
+  const tintColor = Colors[colorScheme ?? 'light'].tint;
+
   return (
     <>
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+          tabBarActiveTintColor: tintColor,
           headerShown: true,
           tabBarButton: HapticTab,
           tabBarBackground: TabBarBackground,
@@ -46,7 +55,7 @@ export default function TabLayout() {
             },
             default: {},
           }),
-          headerRight: SettingsButton,
+          headerRight: () => <SettingsButton onPress={() => setShowSettings(true)} color={tintColor} />,
         }}>
         <Tabs.Screen
           name="index"

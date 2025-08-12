@@ -2,14 +2,12 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { databaseAPI, Interview } from '@/utils/database';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
     FlatList,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
-
-
+import { showCrossPlatformAlert } from './CrossPlatformAlert';
 
 interface InterviewListProps {
   patientId: string;
@@ -29,7 +27,10 @@ export default function InterviewList({ patientId, onInterviewSelect }: Intervie
         setInterviews(fetchedInterviews);
       } catch (error) {
         console.error('Failed to fetch interviews:', error);
-        Alert.alert('Error', 'Failed to load interviews. Please try again.');
+        showCrossPlatformAlert({
+          title: 'Error',
+          message: 'Failed to load interviews. Please try again.'
+        });
       } finally {
         setIsLoading(false);
       }
@@ -69,11 +70,10 @@ export default function InterviewList({ patientId, onInterviewSelect }: Intervie
     if (interview.status === 'completed') {
       onInterviewSelect(interview);
     } else {
-      Alert.alert(
-        'Interview Not Complete',
-        'This interview was not completed and cannot be viewed.',
-        [{ text: 'OK' }]
-      );
+      showCrossPlatformAlert({
+        title: 'Interview Not Complete',
+        message: 'This interview was not completed and cannot be viewed.'
+      });
     }
   };
 

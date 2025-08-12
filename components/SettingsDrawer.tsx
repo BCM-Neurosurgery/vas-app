@@ -2,14 +2,14 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { databaseAPI, Patient } from '@/utils/database';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Modal,
     ScrollView,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { showCrossPlatformAlert } from './CrossPlatformAlert';
+import CrossPlatformModal from './CrossPlatformModal';
 
 interface SettingsDrawerProps {
   isVisible: boolean;
@@ -17,8 +17,6 @@ interface SettingsDrawerProps {
   selectedPatient: Patient | null;
   onPatientChange: (patient: Patient) => void;
 }
-
-
 
 export default function SettingsDrawer({
   isVisible,
@@ -46,7 +44,10 @@ export default function SettingsDrawer({
         }
       } catch (error) {
         console.error('Failed to fetch patients:', error);
-        Alert.alert('Error', 'Failed to load patients. Please try again.');
+        showCrossPlatformAlert({
+          title: 'Error',
+          message: 'Failed to load patients. Please try again.'
+        });
       } finally {
         setIsLoading(false);
       }
@@ -68,20 +69,26 @@ export default function SettingsDrawer({
       onClose();
     } catch (error) {
       console.error('Failed to set patient as latest:', error);
-      Alert.alert('Error', 'Failed to update patient selection. Please try again.');
+      showCrossPlatformAlert({
+        title: 'Error',
+        message: 'Failed to update patient selection. Please try again.'
+      });
     }
   };
 
   const handleNewPatient = async () => {
     if (!newPatientName.trim()) {
-      Alert.alert('Error', 'Please enter a patient name');
+      showCrossPlatformAlert({
+        title: 'Error',
+        message: 'Please enter a patient name'
+      });
       return;
     }
 
-    Alert.alert(
-      'Create New Patient',
-      `Do you want to create a new log for "${newPatientName}"?`,
-      [
+    showCrossPlatformAlert({
+      title: 'Create New Patient',
+      message: `Do you want to create a new log for "${newPatientName}"?`,
+      buttons: [
         {
           text: 'Cancel',
           style: 'cancel',
@@ -108,14 +115,17 @@ export default function SettingsDrawer({
               onClose();
             } catch (error) {
               console.error('Failed to create patient:', error);
-              Alert.alert('Error', 'Failed to create new patient. Please try again.');
+              showCrossPlatformAlert({
+                title: 'Error',
+                message: 'Failed to create new patient. Please try again.'
+              });
             } finally {
               setIsLoading(false);
             }
           },
         },
       ]
-    );
+    });
   };
 
   const handleClearSelection = async () => {
@@ -126,25 +136,23 @@ export default function SettingsDrawer({
       }
     } catch (error) {
       console.error('Failed to reset selection:', error);
-      Alert.alert('Error', 'Failed to reset patient selection. Please try again.');
+      showCrossPlatformAlert({
+        title: 'Error',
+        message: 'Failed to reset patient selection. Please try again.'
+      });
     }
   };
 
   return (
-    <Modal
+    <CrossPlatformModal
       visible={isVisible}
+      onClose={onClose}
+      title="Settings"
+      showCloseButton={true}
       animationType="slide"
       presentationStyle="pageSheet"
-      onRequestClose={onClose}
     >
       <View className="flex-1 bg-medical-gray">
-        <View className="flex-row justify-between items-center p-5 pt-15 bg-white border-b border-medical-gray-medium">
-          <Text className="text-xl font-bold text-medical-text-primary">Settings</Text>
-          <TouchableOpacity onPress={onClose} className="p-1">
-            <IconSymbol name="xmark" size={24} color="#007AFF" />
-          </TouchableOpacity>
-        </View>
-
         <ScrollView className="flex-1 p-5">
           <View className="bg-white rounded-xl p-5 mb-5 shadow-sm">
             <Text className="text-lg font-bold mb-4 text-medical-text-primary">Patient Selection</Text>
@@ -201,43 +209,44 @@ export default function SettingsDrawer({
         </ScrollView>
 
         {/* New Patient Modal */}
-        <Modal
+        <CrossPlatformModal
           visible={showNewPatientModal}
+          onClose={() => {
+            setNewPatientName('');
+            setShowNewPatientModal(false);
+          }}
+          title="New Patient"
+          showCloseButton={true}
           animationType="fade"
-          transparent={true}
-          onRequestClose={() => setShowNewPatientModal(false)}
         >
-          <View className="flex-1 bg-black/50 justify-center items-center">
-            <View className="bg-white rounded-xl p-5 w-4/5 max-w-sm">
-              <Text className="text-lg font-bold mb-5 text-center">New Patient</Text>
-              <TextInput
-                className="border border-gray-300 rounded-lg p-3 text-base mb-5"
-                placeholder="Enter patient name"
-                value={newPatientName}
-                onChangeText={setNewPatientName}
-                autoFocus
-              />
-              <View className="flex-row justify-between">
-                <TouchableOpacity
-                  className="flex-1 p-3 rounded-lg bg-medical-gray-light mr-2"
-                  onPress={() => {
-                    setNewPatientName('');
-                    setShowNewPatientModal(false);
-                  }}
-                >
-                  <Text className="text-medical-text-secondary text-center font-semibold">Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="flex-1 p-3 rounded-lg bg-primary-500 ml-2"
-                  onPress={handleNewPatient}
-                >
-                  <Text className="text-white text-center font-semibold">Create</Text>
-                </TouchableOpacity>
-              </View>
+          <View className="bg-white rounded-xl p-5 w-full max-w-sm">
+            <TextInput
+              className="border border-gray-300 rounded-lg p-3 text-base mb-5"
+              placeholder="Enter patient name"
+              value={newPatientName}
+              onChangeText={setNewPatientName}
+              autoFocus
+            />
+            <View className="flex-row justify-between">
+              <TouchableOpacity
+                className="flex-1 p-3 rounded-lg bg-medical-gray-light mr-2"
+                onPress={() => {
+                  setNewPatientName('');
+                  setShowNewPatientModal(false);
+                }}
+              >
+                <Text className="text-medical-text-secondary text-center font-semibold">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-1 p-3 rounded-lg bg-primary-500 ml-2"
+                onPress={handleNewPatient}
+              >
+                <Text className="text-white text-center font-semibold">Create</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
+        </CrossPlatformModal>
       </View>
-    </Modal>
+    </CrossPlatformModal>
   );
 }
