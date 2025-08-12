@@ -60,9 +60,26 @@ export default function CrossPlatformModal({
                 <TouchableOpacity
                   onPress={onClose}
                   className="p-2 -m-2 hover:bg-gray-200 rounded-lg transition-colors"
-                  style={{ minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' }}
+                  style={{ 
+                    minWidth: 40, 
+                    minHeight: 40, 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    backgroundColor: Platform.OS === 'web' ? 'rgba(0, 0, 0, 0.05)' : 'transparent',
+                  }}
                 >
                   <IconSymbol name="xmark" size={20} color="#666" />
+                  {/* Subtle indicator for web */}
+                  {Platform.OS === 'web' && (
+                    <Text style={{ 
+                      fontSize: 8, 
+                      color: '#999', 
+                      marginTop: 2,
+                      fontWeight: '500'
+                    }}>
+                      CLOSE
+                    </Text>
+                  )}
                 </TouchableOpacity>
               )}
             </View>
