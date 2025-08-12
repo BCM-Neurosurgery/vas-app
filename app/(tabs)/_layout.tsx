@@ -5,7 +5,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Tabs } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform, TouchableOpacity } from 'react-native';
+import { Platform, Text, TouchableOpacity } from 'react-native';
 import SettingsDrawer from '../../components/SettingsDrawer';
 
 interface Patient {
@@ -18,14 +18,21 @@ interface Patient {
 const SettingsButton = ({ onPress, color }: { onPress: () => void; color: string }) => (
   <TouchableOpacity
     onPress={onPress}
-    className="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+    className="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors settings-button"
     style={{ 
       marginRight: 15,
       padding: Platform.OS === 'web' ? 8 : 4,
       borderRadius: Platform.OS === 'web' ? 8 : 0,
+      // Debug styling to ensure visibility
+      backgroundColor: Platform.OS === 'web' ? 'rgba(0, 122, 255, 0.1)' : 'transparent',
     }}
+    data-testid="settings-button"
   >
     <IconSymbol name="gearshape.fill" size={24} color={color} />
+    {/* Debug text for web */}
+    {Platform.OS === 'web' && (
+      <Text style={{ fontSize: 10, color: '#007AFF', marginTop: 2 }}>Settings</Text>
+    )}
   </TouchableOpacity>
 );
 
