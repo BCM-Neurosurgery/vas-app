@@ -1,5 +1,5 @@
+import { showCrossPlatformAlert } from '@/components/CrossPlatformAlert';
 import QuickStart from '@/components/QuickStart';
-import { Alert } from 'react-native';
 
 interface SurveyType {
   id: string;
@@ -15,20 +15,18 @@ export default function HomeScreen() {
   const handleStartSurvey = (surveyType: SurveyType) => {
     if (surveyType.disabled) {
     // This should never happen since the component handles disabled states
-    Alert.alert(
-      'Survey Unavailable',
-      `${surveyType.name} is not yet available in this version.`,
-      [{ text: 'OK' }]
-    );
+    showCrossPlatformAlert({
+      title: 'Survey Unavailable',
+      message: `${surveyType.name} is not yet available in this version.`
+    });
     return;
     }
 
     // In a real app, this would navigate to the survey flow
-    Alert.alert(
-      'Survey Started',
-      `Beginning ${surveyType.name}...\n\nThis would launch the CAT-MH survey interface`,
-      [{ text: 'OK' }]
-    );
+    showCrossPlatformAlert({
+      title: 'Survey Started',
+      message: `Beginning ${surveyType.name}...\n\nThis would launch the CAT-MH survey interface`
+    });
   };
 
   return (
