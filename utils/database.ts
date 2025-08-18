@@ -1,27 +1,41 @@
 // Database API utilities for CAT-MH app
 // Replace API_BASE_URL with your actual endpoint
 
-export const API_BASE_URL = 'https://your-api-endpoint.com/api';
+export const API_BASE_URL = process.env.EXPO_PUBLIC_DATABASE_URL;
 
 export interface Patient {
-  id: string;
-  name: string;
-  isLatest?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  id: number;
+  emu_id: string;
+  latest: boolean;
 }
 
 export interface Interview {
-  id: string;
-  patientId: string;
-  surveyType: string;
+  id: number;
+  patient_id: string;
   status: 'completed' | 'terminated' | 'in_progress';
-  date: string;
-  time: string;
-  duration: string;
-  results?: any;
-  createdAt?: string;
-  updatedAt?: string;
+  survey_type: string;
+  catmh_id: number;
+  start_time: Date;
+  end_time?: Date;
+  timeframe_id: number;
+  diagnosis?: string;
+  confidence?: number;
+  severity?: number;
+  category?: string;
+  precision?: number;
+  prob?: number;
+  percentile?: number;
+}
+
+export interface Question {
+  id: number;
+  interview_id: number;
+  question_id: number;
+  display_duration: number; // in milliseconds
+  response_id: number;
+  response_weight: number;
+  response_text: string;
+  answer_list: string;
 }
 
 export const databaseAPI = {
@@ -37,33 +51,31 @@ export const databaseAPI = {
       const patients = await response.json();
       return patients.map((patient: any) => ({
         id: patient.id,
-        name: patient.name,
-        isLatest: patient.isLatest || false,
-        createdAt: patient.createdAt,
-        updatedAt: patient.updatedAt,
+        emu_id: patient.emu_id,
+        latest: patient.latest
       }));
     } catch (error) {
       console.error('Error fetching patients:', error);
       // Return mock data for development
       return [
-        { id: '1', name: 'John Doe', isLatest: true, createdAt: '2024-01-01', updatedAt: '2024-01-15' },
-        { id: '2', name: 'Jane Smith', isLatest: false, createdAt: '2024-01-10', updatedAt: '2024-01-10' },
-        { id: '3', name: 'Bob Johnson', isLatest: false, createdAt: '2024-01-05', updatedAt: '2024-01-05' },
+        { id: 1, emu_id: 'John Doe', latest: true },
+        { id: 2, emu_id: 'Jane Smith', latest: false },
+        { id: 3, emu_id: 'Bob Johnson', latest: false },
       ];
     }
   },
 
   // Create new patient in database
-  async createPatient(patientName: string): Promise<Patient> {
+  async createPatient(emuId: string): Promise<Patient> {
     try {
-      const response = await fetch(`${API_BASE_URL}/patients`, {
+      const response = await fetch(`${API_BASE_URL}/patient-add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: patientName,
-          isLatest: true, // New patient becomes the latest
+          emu_id: emuId,
+          latest: true, // New patient becomes the latest
         }),
       });
       
@@ -74,47 +86,36 @@ export const databaseAPI = {
       const newPatient = await response.json();
       return {
         id: newPatient.id,
-        name: newPatient.name,
-        isLatest: newPatient.isLatest,
-        createdAt: newPatient.createdAt,
-        updatedAt: newPatient.updatedAt,
+        emu_id: newPatient.emu_id,
+        latest: newPatient.latest
       };
     } catch (error) {
       console.error('Error creating patient:', error);
       // Return mock data for development
       return {
-        id: Date.now().toString(),
-        name: patientName,
-        isLatest: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        id: Date.now(),
+        emu_id: emuId,
+        latest: true
       };
     }
   },
 
   // Update patient in database
-  async updatePatient(patientId: string, updates: Partial<Patient>): Promise<Patient> {
+  async updatePatients(patients: Patient[]): Promise<string> {
     try {
-      const response = await fetch(`${API_BASE_URL}/patients/${patientId}`, {
-        method: 'PATCH',
+      const response = await fetch(`${API_BASE_URL}/patient-update`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(patients),
       });
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const updatedPatient = await response.json();
-      return {
-        id: updatedPatient.id,
-        name: updatedPatient.name,
-        isLatest: updatedPatient.isLatest,
-        createdAt: updatedPatient.createdAt,
-        updatedAt: updatedPatient.updatedAt,
-      };
+      return "patients updated successfully"
     } catch (error) {
       console.error('Error updating patient:', error);
       throw error;
@@ -122,18 +123,20 @@ export const databaseAPI = {
   },
 
   // Set a patient as the latest (and unset others)
-  async setAsLatest(patientId: string): Promise<void> {
+  async setAsLatest(patient: Patient): Promise<void> {
     try {
       // First, unset all patients as latest
-      await fetch(`${API_BASE_URL}/patients/unset-latest`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      // Then set the specified patient as latest
-      await this.updatePatient(patientId, { isLatest: true });
+      let allPatients = await this.getPatients();
+      // set all their 'latest' fields to false except this patient
+      allPatients = allPatients.map(
+        obj => (
+          obj.id === patient.id ?
+          {...obj, latest: true} :
+          {...obj, latest: false}
+        ));
+
+      // now update patients
+      await this.updatePatients(allPatients);
     } catch (error) {
       console.error('Error setting patient as latest:', error);
       throw error;
@@ -145,68 +148,63 @@ export const databaseAPI = {
   // Fetch interviews for a specific patient
   async getInterviews(patientId: string): Promise<Interview[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/patients/${patientId}/interviews`);
+      const response = await fetch(`${API_BASE_URL}/interviews/${patientId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const interviews = await response.json();
       return interviews.map((interview: any) => ({
         id: interview.id,
-        patientId: interview.patientId,
-        surveyType: interview.surveyType,
+        patient_id: interview.patient_id,
         status: interview.status,
-        date: interview.date,
-        time: interview.time,
-        duration: interview.duration,
-        results: interview.results,
-        createdAt: interview.createdAt,
-        updatedAt: interview.updatedAt,
+        catmh_id: interview.catmh_id,
+        survey_type: interview.survey_type,
+        start_time: new Date(interview.start_time),
+        end_time: interview.end_time ? new Date(interview.end_time): undefined,
+        timeframe_id: interview.timeframe_id,
+        diagnosis: interview.diagnosis,
+        confidence: interview.confidence,
+        severity: interview.severity,
+        category: interview.category,
+        precision: interview.precision,
+        prob: interview.prob,
+        percentile: interview.percentile
       }));
     } catch (error) {
       console.error('Error fetching interviews:', error);
       // Return mock data for development
       return [
         {
-          id: '1',
-          patientId,
-          surveyType: 'Depression Screening',
-          status: 'completed',
-          date: '2024-01-15',
-          time: '14:30',
-          duration: '25 min',
-          createdAt: '2024-01-15T14:30:00Z',
-          updatedAt: '2024-01-15T14:55:00Z',
+          id: 1,
+          patient_id: patientId,
+          status: 'in_progress',
+          survey_type: 'Depression Screening',
+          catmh_id: 1,
+          start_time: new Date(),
+          timeframe_id: 1,
         },
         {
-          id: '2',
-          patientId,
-          surveyType: 'Anxiety Assessment',
-          status: 'completed',
-          date: '2024-01-10',
-          time: '09:15',
-          duration: '18 min',
-          createdAt: '2024-01-10T09:15:00Z',
-          updatedAt: '2024-01-10T09:33:00Z',
-        },
+          id: 2,
+          patient_id: patientId,
+          status: 'in_progress',
+          survey_type: 'Anxiety Assessment',
+          catmh_id: 2,
+          start_time: new Date(),
+          timeframe_id: 1,
+        }
       ];
     }
   },
 
   // Create new interview
-  async createInterview(patientId: string, surveyType: string): Promise<Interview> {
+  async createInterview(interview_info: Partial<Interview>): Promise<Interview> {
     try {
       const response = await fetch(`${API_BASE_URL}/interviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          patientId,
-          surveyType,
-          status: 'in_progress',
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toLocaleTimeString('en-US', { hour12: false }),
-        }),
+        body: JSON.stringify(interview_info),
       });
       
       if (!response.ok) {
@@ -216,14 +214,12 @@ export const databaseAPI = {
       const newInterview = await response.json();
       return {
         id: newInterview.id,
-        patientId: newInterview.patientId,
-        surveyType: newInterview.surveyType,
+        patient_id: newInterview.patientId,
+        survey_type: newInterview.surveyType,
         status: newInterview.status,
-        date: newInterview.date,
-        time: newInterview.time,
-        duration: newInterview.duration,
-        createdAt: newInterview.createdAt,
-        updatedAt: newInterview.updatedAt,
+        start_time: new Date(newInterview.date),
+        catmh_id: newInterview.catmh_id,
+        timeframe_id: newInterview.timeframe_id,
       };
     } catch (error) {
       console.error('Error creating interview:', error);
@@ -232,14 +228,14 @@ export const databaseAPI = {
   },
 
   // Update interview status
-  async updateInterview(interviewId: string, updates: Partial<Interview>): Promise<Interview> {
+  async updateInterview(interview_data: Interview): Promise<Interview> {
     try {
-      const response = await fetch(`${API_BASE_URL}/interviews/${interviewId}`, {
-        method: 'PATCH',
+      const response = await fetch(`${API_BASE_URL}/interview-update`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(interview_data),
       });
       
       if (!response.ok) {
@@ -249,15 +245,20 @@ export const databaseAPI = {
       const updatedInterview = await response.json();
       return {
         id: updatedInterview.id,
-        patientId: updatedInterview.patientId,
-        surveyType: updatedInterview.surveyType,
+        patient_id: updatedInterview.patient_id,
+        survey_type: updatedInterview.survey_type,
         status: updatedInterview.status,
-        date: updatedInterview.date,
-        time: updatedInterview.time,
-        duration: updatedInterview.duration,
-        results: updatedInterview.results,
-        createdAt: updatedInterview.createdAt,
-        updatedAt: updatedInterview.updatedAt,
+        catmh_id: updatedInterview.catmh_id,
+        timeframe_id: updatedInterview.timeframe_id,
+        start_time: new Date(updatedInterview.start_time),
+        end_time: updatedInterview.end_time ? new Date(updatedInterview.end_time) : undefined,
+        diagnosis: updatedInterview.diagnosis,
+        confidence: updatedInterview.confidence,
+        severity: updatedInterview.severity,
+        category: updatedInterview.category,
+        precision: updatedInterview.precision,
+        prob: updatedInterview.prob,
+        percentile: updatedInterview.percentile,
       };
     } catch (error) {
       console.error('Error updating interview:', error);
@@ -265,38 +266,92 @@ export const databaseAPI = {
     }
   },
 
-  // ===== SURVEY RESULTS =====
+  // ===== QUESTION MANAGEMENT =====
 
-  // Save survey results
-  async saveSurveyResults(interviewId: string, results: any): Promise<void> {
+  // Add a new question to the database
+  async addQuestion(question: Omit<Question, 'id'>): Promise<Question> {
     try {
-      const response = await fetch(`${API_BASE_URL}/interviews/${interviewId}/results`, {
+      const response = await fetch(`${API_BASE_URL}/question-add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(results),
+        body: JSON.stringify(question),
       });
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
+      const newQuestion = await response.json();
+      return {
+        id: newQuestion.id,
+        interview_id: newQuestion.interview_id,
+        question_id: newQuestion.question_id,
+        display_duration: newQuestion.display_duration,
+        response_id: newQuestion.response_id,
+        response_weight: newQuestion.response_weight,
+        response_text: newQuestion.response_text,
+        answer_list: newQuestion.answer_list,
+      };
     } catch (error) {
-      console.error('Error saving survey results:', error);
+      console.error('Error adding question:', error);
       throw error;
     }
   },
 
-  // Get survey results
-  async getSurveyResults(interviewId: string): Promise<any> {
+  // Get all questions for a specific interview
+  async getQuestionsForInterview(interviewId: number): Promise<Question[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/interviews/${interviewId}/results`);
+      const response = await fetch(`${API_BASE_URL}/questions/${interviewId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const questions = await response.json();
+      return questions.map((question: any) => ({
+        id: question.id,
+        interview_id: question.interview_id,
+        question_id: question.question_id,
+        display_duration: question.display_duration,
+        response_id: question.response_id,
+        response_weight: question.response_weight,
+        response_text: question.response_text,
+        answer_list: question.answer_list,
+      }));
     } catch (error) {
-      console.error('Error fetching survey results:', error);
+      console.error('Error fetching questions:', error);
+      return [];
+    }
+  },
+
+  // Add multiple questions at once (useful for batch operations)
+  async addQuestions(questions: Omit<Question, 'id'>[]): Promise<Question[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/questions-batch-add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(questions),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const newQuestions = await response.json();
+      return newQuestions.map((question: any) => ({
+        id: question.id,
+        interview_id: question.interview_id,
+        question_id: question.question_id,
+        display_duration: question.display_duration,
+        response_id: question.response_id,
+        response_weight: question.response_weight,
+        response_text: question.response_text,
+        answer_list: question.answer_list,
+      }));
+    } catch (error) {
+      console.error('Error adding questions:', error);
       throw error;
     }
   },

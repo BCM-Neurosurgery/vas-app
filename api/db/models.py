@@ -12,6 +12,7 @@ class Interview(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     patient_id: int = Field(default=None, foreign_key="patient.id")
     status: str
+    survey_type: str
     catmh_id: int = Field(default=None)
     start_time: datetime
     end_time: datetime | None = Field(default=None)
