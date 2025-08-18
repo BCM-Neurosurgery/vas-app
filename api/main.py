@@ -48,11 +48,11 @@ def get_patients() -> list[Patient]:
         return results
 
 @app.post("/patient-add")
-def add_patient(patient: Patient):
+def add_patient(patient: Patient) -> Patient:
     with Session(DB_ENGINE) as session:
         session.add(patient)
         session.commit()
-    return {"message": "Patient added successfully"}
+    return patient
 
 @app.post("/patient-update")
 def update_patients(patient_list: list[Patient]):
@@ -62,7 +62,7 @@ def update_patients(patient_list: list[Patient]):
             results = session.exec(statement)
             patient = results.one()
             patient.emu_id = patient_data.emu_id
-            patient.latest = patient_data.lastest
+            patient.latest = patient_data.latest
             session.add(patient)
         session.commit()
     return {"message": "Patients updated successfully"}
@@ -81,10 +81,10 @@ def add_interview(interview: Interview):
     with Session(DB_ENGINE) as session:
         session.add(interview)
         session.commit()
-    return {"message": "Interview added successfully"}
+    return interview
  
 @app.post("/interview-update")
-def update_interview(interview_data: Interview):
+def update_interview(interview_data: Interview) -> Interview:
     with Session(DB_ENGINE) as session:
         statement = select(Interview).where(Interview.id == interview_data.id)
         results = session.exec(statement)
@@ -100,4 +100,30 @@ def update_interview(interview_data: Interview):
         interview.percentile = interview_data.percentile
         session.add(interview)
         session.commit()
-    return {"message": "Interview updated successfully"}
+    return interview
+
+@app.post("/question-add")
+def add_question(question: Question) -> Question:
+    with Session(DB_ENGINE) as session:
+        session.add(question)
+        session.commit()
+        session.refresh(question)
+    return question
+
+@app.get("/questions/{interview_id}")
+def get_questions_for_interview(interview_id: int) -> list[Question]:
+    statement = select(Question).where(Question.interview_id == interview_id)
+    with Session(DB_ENGINE) as session:
+        results = session.exec(statement)
+        return list(results)
+
+@app.post("/questions-batch-add")
+def add_questions_batch(questions: list[Question]) -> list[Question]:
+    with Session(DB_ENGINE) as session:
+        for question in questions:
+            session.add(question)
+        session.commit()
+        # Refresh all questions to get their IDs
+        for question in questions:
+            session.refresh(question)
+    return questions
