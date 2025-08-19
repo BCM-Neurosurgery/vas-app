@@ -17,10 +17,14 @@ export interface InterviewProgress {
   currentQuestion: CATMHQuestionResponse | null;
   isComplete: boolean;
   isInitialized: boolean;
+  isPaused: boolean;
+  isMinimized: boolean;
   questionsAnswered: number;
   totalQuestions?: number;
   language: string;
   testTypes: string[];
+  startTime: number | null;
+  lastActivityTime: number;
 }
 
 export interface InterviewCallbacks {
@@ -29,7 +33,20 @@ export interface InterviewCallbacks {
   onProgressUpdate?: (progress: InterviewProgress) => void;
   onInterviewComplete?: (results: CATMHInterviewResults) => void;
   onInterviewInitialized?: (initResponse: CATMHInterviewInitResponse) => void;
+  onInterviewPaused?: () => void;
+  onInterviewResumed?: () => void;
+  onInterviewMinimized?: () => void;
+  onInterviewRestored?: () => void;
   onError?: (error: Error) => void;
+}
+
+export interface InterviewState {
+  isActive: boolean;
+  isPaused: boolean;
+  isMinimized: boolean;
+  progress: InterviewProgress | null;
+  cookies: CATMHCookies | null;
+  interviewData: CATMHInterviewCreateResponse['interviews'][0] | null;
 }
 
 export class InterviewOrchestrator {
@@ -40,6 +57,8 @@ export class InterviewOrchestrator {
   private isRunning = false;
   private questionStartTime: number = 0;
   private sessionTimeout: number | null = null;
+  private isPaused = false;
+  private isMinimized = false;
 
   constructor(callbacks: InterviewCallbacks = {}) {
     this.callbacks = callbacks;
@@ -48,6 +67,33 @@ export class InterviewOrchestrator {
   // Set callbacks for interview events
   setCallbacks(callbacks: InterviewCallbacks): void {
     this.callbacks = { ...this.callbacks, ...callbacks };
+  }
+
+  // Get current interview state
+  getInterviewState(): InterviewState {
+    return {
+      isActive: this.isRunning && !this.isPaused && !this.isMinimized,
+      isPaused: this.isPaused,
+      isMinimized: this.isMinimized,
+      progress: this.currentProgress,
+      cookies: this.currentCookies,
+      interviewData: this.currentInterview,
+    };
+  }
+
+  // Check if there's an existing active interview for a subject
+  async checkExistingInterview(
+    organizationID: number,
+    subjectID: string
+  ): Promise<CATMHInterviewCreateResponse['interviews'][0] | null> {
+    try {
+      // In a real implementation, you'd check your database for existing interviews
+      // For now, we'll return null to always create new interviews
+      return null;
+    } catch (error) {
+      console.error('Error checking for existing interview:', error);
+      return null;
+    }
   }
 
   // Create a new interview for a subject
@@ -121,9 +167,13 @@ export class InterviewOrchestrator {
         currentQuestion: null,
         isComplete: false,
         isInitialized: true,
+        isPaused: false,
+        isMinimized: false,
         questionsAnswered: 0,
         language: catmhAPI.getLanguageName(initResponse.languageID),
         testTypes: initResponse.interviewTests.map(testId => this.getTestTypeFromId(testId)),
+        startTime: initResponse.startTime,
+        lastActivityTime: Date.now(),
       };
 
       // Set up session timeout (30 minutes as per API docs)
@@ -140,6 +190,88 @@ export class InterviewOrchestrator {
     }
   }
 
+  // Resume a paused interview
+  async resumeInterview(): Promise<void> {
+    if (!this.currentCookies || !this.currentProgress) {
+      throw new Error('No active interview to resume');
+    }
+
+    try {
+      this.isPaused = false;
+      this.currentProgress.isPaused = false;
+      this.currentProgress.lastActivityTime = Date.now();
+      
+      // Reset session timeout
+      this.resetSessionTimeout();
+      
+      this.callbacks.onInterviewResumed?.();
+      this.updateProgress();
+    } catch (error) {
+      console.error('Error resuming interview:', error);
+      this.callbacks.onError?.(error as Error);
+    }
+  }
+
+  // Pause the current interview
+  async pauseInterview(): Promise<void> {
+    if (!this.currentProgress) {
+      throw new Error('No active interview to pause');
+    }
+
+    try {
+      this.isPaused = true;
+      this.currentProgress.isPaused = true;
+      this.currentProgress.lastActivityTime = Date.now();
+      
+      this.callbacks.onInterviewPaused?.();
+      this.updateProgress();
+    } catch (error) {
+      console.error('Error pausing interview:', error);
+      this.callbacks.onError?.(error as Error);
+    }
+  }
+
+  // Minimize the interview (keep it running but hide UI)
+  async minimizeInterview(): Promise<void> {
+    if (!this.currentProgress) {
+      throw new Error('No active interview to minimize');
+    }
+
+    try {
+      this.isMinimized = true;
+      this.currentProgress.isMinimized = true;
+      this.currentProgress.lastActivityTime = Date.now();
+      
+      this.callbacks.onInterviewMinimized?.();
+      this.updateProgress();
+    } catch (error) {
+      console.error('Error minimizing interview:', error);
+      this.callbacks.onError?.(error as Error);
+    }
+  }
+
+  // Restore a minimized interview
+  async restoreInterview(): Promise<void> {
+    if (!this.currentProgress) {
+      throw new Error('No active interview to restore');
+    }
+
+    try {
+      this.isMinimized = false;
+      this.currentProgress.isMinimized = false;
+      this.currentProgress.lastActivityTime = Date.now();
+      
+      // Reset session timeout
+      this.resetSessionTimeout();
+      
+      this.callbacks.onInterviewRestored?.();
+      this.updateProgress();
+    } catch (error) {
+      console.error('Error restoring interview:', error);
+      this.callbacks.onError?.(error as Error);
+    }
+  }
+
   // Get the current question and start timing
   async getCurrentQuestion(): Promise<CATMHQuestionResponse | null> {
     if (!this.currentCookies) {
@@ -152,6 +284,7 @@ export class InterviewOrchestrator {
       if (question) {
         this.currentProgress!.currentQuestion = question;
         this.questionStartTime = Date.now();
+        this.currentProgress!.lastActivityTime = Date.now();
         
         this.callbacks.onQuestionReceived?.(question);
         this.updateProgress();
@@ -224,6 +357,7 @@ export class InterviewOrchestrator {
 
       this.callbacks.onAnswerSubmitted?.(answer);
       this.currentProgress!.questionsAnswered++;
+      this.currentProgress!.lastActivityTime = Date.now();
       this.updateProgress();
 
       // Reset session timeout
@@ -271,17 +405,22 @@ export class InterviewOrchestrator {
     }
   }
 
-  // Sign out and terminate the interview session
-  async signOut(): Promise<void> {
-    if (this.currentCookies) {
-      try {
+  // Terminate the interview (close permanently)
+  async terminateInterview(): Promise<void> {
+    try {
+      if (this.currentCookies) {
         await catmhAPI.signOut(this.currentCookies);
-      } catch (error) {
-        console.error('Error signing out:', error);
       }
+    } catch (error) {
+      console.error('Error signing out:', error);
     }
 
     this.cleanup();
+  }
+
+  // Sign out and terminate the interview session
+  async signOut(): Promise<void> {
+    await this.terminateInterview();
   }
 
   // Get current progress
@@ -421,6 +560,12 @@ export class InterviewOrchestrator {
       
       // Main interview loop
       while (this.isRunning && this.currentProgress && !this.currentProgress.isComplete) {
+        // Check if interview is paused or minimized
+        if (this.currentProgress.isPaused || this.currentProgress.isMinimized) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+
         // Get current question
         const question = await this.getCurrentQuestion();
         if (!question) {
@@ -468,5 +613,7 @@ export class InterviewOrchestrator {
     this.currentCookies = null;
     this.currentProgress = null;
     this.isRunning = false;
+    this.isPaused = false;
+    this.isMinimized = false;
   }
 }

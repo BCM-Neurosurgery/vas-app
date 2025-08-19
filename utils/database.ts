@@ -11,7 +11,7 @@ export interface Patient {
 
 export interface Interview {
   id: number;
-  patient_id: string;
+  patient_id: number;
   status: 'completed' | 'terminated' | 'in_progress';
   survey_type: string;
   catmh_id: number;
@@ -146,8 +146,29 @@ export const databaseAPI = {
   // ===== INTERVIEW MANAGEMENT =====
 
   // Fetch interviews for a specific patient
-  async getInterviews(patientId: string): Promise<Interview[]> {
+  async getInterviews(patientIdOrPatient: string | Patient): Promise<Interview[]> {
     try {
+      let patientId: number;
+      
+      if (typeof patientIdOrPatient === 'string') {
+        // If we got a string (emu_id), look up the patient first
+        const patientResponse = await fetch(`${API_BASE_URL}/patients/${patientIdOrPatient}`);
+        if (!patientResponse.ok) {
+          throw new Error(`HTTP error! status: ${patientResponse.status}`);
+        }
+        const patient = await patientResponse.json();
+        
+        if (!patient) {
+          throw new Error('Patient not found');
+        }
+        
+        patientId = patient.id;
+      } else {
+        // If we got a Patient object, use its id directly
+        patientId = patientIdOrPatient.id;
+      }
+      
+      // Now get interviews using the actual patient_id
       const response = await fetch(`${API_BASE_URL}/interviews/${patientId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -173,23 +194,53 @@ export const databaseAPI = {
     } catch (error) {
       console.error('Error fetching interviews:', error);
       // Return mock data for development
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      
       return [
         {
           id: 1,
-          patient_id: patientId,
-          status: 'in_progress',
-          survey_type: 'Depression Screening',
+          patient_id: 1, // Mock patient_id
+          status: 'completed',
+          survey_type: 'Depression Screening (PHQ-9)',
           catmh_id: 1,
-          start_time: new Date(),
+          start_time: twoHoursAgo,
+          end_time: oneHourAgo,
           timeframe_id: 1,
+          diagnosis: 'Mild Depression',
+          confidence: 0.85,
+          severity: 6,
+          category: 'Mood Disorder',
+          precision: 0.92,
+          prob: 0.78,
+          percentile: 65
         },
         {
           id: 2,
-          patient_id: patientId,
-          status: 'in_progress',
-          survey_type: 'Anxiety Assessment',
+          patient_id: 1, // Mock patient_id
+          status: 'completed',
+          survey_type: 'Anxiety Assessment (GAD-7)',
           catmh_id: 2,
-          start_time: new Date(),
+          start_time: yesterday,
+          end_time: new Date(yesterday.getTime() + 45 * 60 * 1000),
+          timeframe_id: 1,
+          diagnosis: 'Moderate Anxiety',
+          confidence: 0.78,
+          severity: 8,
+          category: 'Anxiety Disorder',
+          precision: 0.89,
+          prob: 0.82,
+          percentile: 78
+        },
+        {
+          id: 3,
+          patient_id: 1, // Mock patient_id
+          status: 'in_progress',
+          survey_type: 'Substance Use Screening',
+          catmh_id: 3,
+          start_time: now,
           timeframe_id: 1,
         }
       ];

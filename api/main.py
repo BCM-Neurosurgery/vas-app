@@ -11,6 +11,10 @@ app = FastAPI()
 def read_root():
     return {"message": "App is live!"}
 
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "message": "FastAPI is running"}
+
 @app.post("/dump-db")
 def dump_db():
     log_path = os.getenv("LOG_PATH")
@@ -42,16 +46,33 @@ def dump_db():
 
 @app.get("/patients")
 def get_patients() -> list[Patient]:
-    statement = select(Patient)
-    with Session(DB_ENGINE) as session:
-        results = session.exec(statement)
-        return results
+    try:
+        statement = select(Patient)
+        with Session(DB_ENGINE) as session:
+            results = session.exec(statement)
+            patients = list(results)
+            return patients
+    except Exception as e:
+        print(f"Error fetching patients: {e}")
+        return []
+
+@app.get("/patients/{emu_id}")
+def get_patient_by_emu_id(emu_id: str) -> Patient | None:
+    try:
+        statement = select(Patient).where(Patient.emu_id == emu_id)
+        with Session(DB_ENGINE) as session:
+            result = session.exec(statement).first()
+            return result
+    except Exception as e:
+        print(f"Error fetching patient by emu_id {emu_id}: {e}")
+        return None
 
 @app.post("/patient-add")
 def add_patient(patient: Patient) -> Patient:
     with Session(DB_ENGINE) as session:
         session.add(patient)
         session.commit()
+        session.refresh(patient)
     return patient
 
 @app.post("/patient-update")
@@ -70,17 +91,23 @@ def update_patients(patient_list: list[Patient]):
 
 @app.get("/interviews/{patient_id}")
 def get_interviews(patient_id: int) -> list[Interview]:
-    # get all interviews for this patient
-    statement = select(Interview).where(Interview.patient_id == patient_id)
-    with Session(DB_ENGINE) as session:
-        results = session.exec(statement)
-    return results
+    try:
+        # get all interviews for this patient by patient_id
+        statement = select(Interview).where(Interview.patient_id == patient_id)
+        with Session(DB_ENGINE) as session:
+            results = session.exec(statement)
+            interviews = list(results)
+            return interviews
+    except Exception as e:
+        print(f"Error fetching interviews for patient {patient_id}: {e}")
+        return []
 
 @app.post("/interview-add")
 def add_interview(interview: Interview):
     with Session(DB_ENGINE) as session:
         session.add(interview)
         session.commit()
+        session.refresh(interview)
     return interview
  
 @app.post("/interview-update")

@@ -2,11 +2,11 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { databaseAPI, Patient } from '@/utils/database';
 import { useEffect, useState } from 'react';
 import {
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { showCrossPlatformAlert } from './CrossPlatformAlert';
 import CrossPlatformModal from './CrossPlatformModal';
@@ -39,7 +39,7 @@ export default function SettingsDrawer({
         
         // Auto-select the latest patient if none is selected
         if (!selectedPatient && fetchedPatients.length > 0) {
-          const latestPatient = fetchedPatients.find(p => p.isLatest) || fetchedPatients[0];
+          const latestPatient = fetchedPatients.find(p => p.latest) || fetchedPatients[0];
           onPatientChange(latestPatient);
         }
       } catch (error) {
@@ -61,7 +61,7 @@ export default function SettingsDrawer({
   const handlePatientSelect = async (patient: Patient) => {
     try {
       // Update database to set this patient as latest
-      await databaseAPI.setAsLatest(patient.id);
+      await databaseAPI.setAsLatest(patient);
       
       // Update local state
       setPatients(prev => prev.map(p => ({ ...p, isLatest: p.id === patient.id })));
@@ -130,7 +130,7 @@ export default function SettingsDrawer({
 
   const handleClearSelection = async () => {
     try {
-      const defaultPatient = patients.find(p => p.isLatest) || patients[0];
+      const defaultPatient = patients.find(p => p.latest) || patients[0];
       if (defaultPatient) {
         await handlePatientSelect(defaultPatient);
       }
@@ -160,7 +160,7 @@ export default function SettingsDrawer({
             <View className="mb-5 p-4 bg-medical-gray-light rounded-lg">
               <Text className="text-sm text-medical-text-secondary mb-1">Current Patient:</Text>
               <Text className="text-base font-semibold text-medical-text-primary">
-                {selectedPatient?.name || 'None selected'}
+                {selectedPatient?.emu_id || 'None selected'}
               </Text>
             </View>
 
@@ -180,8 +180,8 @@ export default function SettingsDrawer({
                     }`}
                     onPress={() => handlePatientSelect(patient)}
                   >
-                    <Text className="text-base text-medical-text-primary">{patient.name}</Text>
-                    {patient.isLatest && (
+                    <Text className="text-base text-medical-text-primary">{patient.emu_id}</Text>
+                    {patient.latest && (
                       <Text className="text-xs text-primary-500 font-semibold">Latest</Text>
                     )}
                   </TouchableOpacity>
