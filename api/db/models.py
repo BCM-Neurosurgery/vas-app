@@ -1,16 +1,19 @@
 from datetime import datetime, timedelta
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Relationship
 from .engine import DB_ENGINE
 
 # create all tables in the database
 class Patient(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    emu_id: str
+    id: int | None = Field(default=None, primary_key=True, index=True)
+    emu_id: str = Field(unique=True, index=True)
     latest: bool = Field(default=False)
+    
+    # Relationships
+    interviews: list["Interview"] = Relationship(back_populates="patient")
 
 class Interview(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    patient_id: int = Field(default=None, foreign_key="patient.id")
+    id: int | None = Field(default=None, primary_key=True, index=True)
+    patient_id: int = Field(foreign_key="patient.id", index=True)
     status: str
     survey_type: str
     catmh_id: int = Field(default=None)
@@ -24,21 +27,23 @@ class Interview(SQLModel, table=True):
     precision: float | None = Field(default=None)
     prob: float | None = Field(default=None)
     percentile: float | None = Field(default=None)
-
-
-
+    
+    # Relationships
+    patient: Patient = Relationship(back_populates="interviews")
+    questions: list["Question"] = Relationship(back_populates="interview")
 
 class Question(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    interview_id: int = Field(default=None, foreign_key="interview.id")
+    id: int | None = Field(default=None, primary_key=True, index=True)
+    interview_id: int = Field(foreign_key="interview.id", index=True)
     question_id: int
     display_duration: timedelta
     response_id: int
     response_weight: float
     response_text: str
     answer_list: str
-
-
+    
+    # Relationships
+    interview: Interview = Relationship(back_populates="questions")
 
 SQLModel.metadata.create_all(DB_ENGINE)
 

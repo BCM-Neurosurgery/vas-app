@@ -2,17 +2,12 @@ import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
+import { usePatient } from '@/contexts/PatientContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Tabs } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Platform, Text, TouchableOpacity } from 'react-native';
 import SettingsDrawer from '../../components/SettingsDrawer';
-
-interface Patient {
-  id: string;
-  name: string;
-  isLatest?: boolean;
-}
 
 // Move SettingsButton outside to avoid re-creation issues
 const SettingsButton = ({ onPress, color }: { onPress: () => void; color: string }) => (
@@ -36,14 +31,10 @@ const SettingsButton = ({ onPress, color }: { onPress: () => void; color: string
   </TouchableOpacity>
 );
 
-export default function TabLayout() {
+export default function TabLayoutContent() {
   const colorScheme = useColorScheme();
   const [showSettings, setShowSettings] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState<Patient>({
-    id: '1',
-    name: 'John Doe',
-    isLatest: true,
-  });
+  const { selectedPatient, setSelectedPatient } = usePatient();
 
   const tintColor = Colors[colorScheme ?? 'light'].tint;
 
@@ -70,6 +61,7 @@ export default function TabLayout() {
             title: 'Quick Start',
             tabBarIcon: ({ color }) => <IconSymbol size={28} name="play.fill" color={color} />,
           }}
+          initialParams={{ selectedPatient, setSelectedPatient }}
         />
         <Tabs.Screen
           name="interviews"

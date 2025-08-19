@@ -12,7 +12,6 @@ db_database = os.getenv("DB_DATABASE")
 if not all([db_user, db_pass, db_host, db_port, db_database]):
     raise ValueError("Required environment variables are not set to conenct to MySQL db")
 
-"postgresql://scott:tiger@localhost:5432/mydatabase"
 DB_ENGINE = create_engine(
     f"mysql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_database}"
     )
