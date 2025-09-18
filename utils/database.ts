@@ -265,10 +265,10 @@ export const databaseAPI = {
       const newInterview = await response.json();
       return {
         id: newInterview.id,
-        patient_id: newInterview.patientId,
-        survey_type: newInterview.surveyType,
+        patient_id: newInterview.patient_id,
+        survey_type: newInterview.survey_type,
         status: newInterview.status,
-        start_time: new Date(newInterview.date),
+        start_time: new Date(newInterview.start_time),
         catmh_id: newInterview.catmh_id,
         timeframe_id: newInterview.timeframe_id,
       };
