@@ -6,7 +6,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { databaseAPI, SimpleInterview } from '@/utils/database';
-import { getRatingDescription, getRatingEmoji, validateRatings } from '@/utils/simpleInterview';
+import { getEnergyEmoji, getRatingDescription, getRatingEmoji, validateRatings } from '@/utils/simpleInterview';
 import Slider from '@react-native-community/slider';
 import { useState } from 'react';
 import { Modal, TouchableOpacity, View } from 'react-native';
@@ -157,7 +157,7 @@ export default function SimpleInterviewModal({
           {/* Energy Rating */}
           {renderRatingSlider(
             'Energy',
-            '⚡',
+            getEnergyEmoji(energyRating),
             energyRating,
             setEnergyRating,
             '#F59E0B'
