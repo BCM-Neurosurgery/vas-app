@@ -4,13 +4,13 @@ services:
   # MySQL Database
   mysql:
     image: mysql:8.0
-    container_name: catdi_mysql
+    container_name: checkin_mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: catdi_db
-      MYSQL_USER: catdi_user
-      MYSQL_PASSWORD: catdi_password
+      MYSQL_DATABASE: checkin_db
+      MYSQL_USER: db_user
+      MYSQL_PASSWORD: db_password
     ports:
       - "3306:3306"
     volumes:
@@ -25,20 +25,18 @@ services:
   # FastAPI Backend
   fastapi:
     build: .
-    container_name: catdi_fastapi
+    container_name: checkin_fastapi
     restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
-      - DB_USER=catdi_user
-      - DB_PASS=catdi_password
+      - DB_USER=db_user
+      - DB_PASS=db_password
       - DB_HOST=mysql
       - DB_PORT=3306
-      - DB_DATABASE=catdi_db
-      - DATABASE_URL=mysql+pymysql://catdi_user:catdi_password@mysql:3306/catdi_db
+      - DB_DATABASE=checkin_db
+      - DATABASE_URL=mysql+pymysql://db_user:db_password@mysql:3306/checkin_db
       - LOG_PATH=/app/logs
-      - CATMH_APP_ID=your_catmh_app_id
-      - CATMH_ORG_ID=your_catmh_org_id
     volumes:
       - ./logs:/app/logs
       - ./api:/app/api

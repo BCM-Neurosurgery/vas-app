@@ -1,21 +1,17 @@
 import { showCrossPlatformAlert } from '@/components/CrossPlatformAlert';
-import InterviewList from '@/components/InterviewList';
+import SimpleInterviewList from '@/components/SimpleInterviewList';
 import { usePatient } from '@/contexts/PatientContext';
-import { Interview } from '@/utils/database';
+import { SimpleInterview } from '@/utils/database';
 import { Text, View } from 'react-native';
 
 export default function InterviewsScreen() {
   const { selectedPatient } = usePatient();
 
-  const handleInterviewSelect = (interview: Interview) => {
-    // In a real app, this would navigate to the interview results
+  const handleInterviewSelect = (interview: SimpleInterview) => {
     showCrossPlatformAlert({
-      title: 'Interview Results',
-      message: `Viewing results for ${interview.survey_type} on ${interview.start_time.toLocaleDateString()}\n\nThis would show detailed assessment results and recommendations.`
+      title: 'Daily Check-in Details',
+      message: `Mood: ${interview.mood_rating}/7\nEnergy: ${interview.energy_rating}/7\n\nDate: ${interview.timestamp.toLocaleDateString()}\nTime: ${interview.timestamp.toLocaleTimeString()}`
     });
-    
-    // Example navigation to results (uncomment when you have results screens)
-    // router.push(`/results/${interview.id}`);
   };
 
   if (!selectedPatient) {
@@ -25,14 +21,14 @@ export default function InterviewsScreen() {
           No Patient Selected
         </Text>
         <Text className="text-sm text-medical-text-muted text-center px-10">
-          Please select a patient from the Quick Start tab to view their interviews.
+          Please select a patient from the Quick Start tab to view their daily check-ins.
         </Text>
       </View>
     );
   }
 
   return (
-    <InterviewList
+    <SimpleInterviewList
       patient={selectedPatient}
       onInterviewSelect={handleInterviewSelect}
     />
