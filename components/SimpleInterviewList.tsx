@@ -4,7 +4,7 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { usePatient } from '@/contexts/PatientContext';
 import { databaseAPI, Patient, SimpleInterview } from '@/utils/database';
-import { getRatingDescription, getRatingEmoji } from '@/utils/simpleInterview';
+import { getEnergyEmoji, getRatingDescription, getRatingEmoji } from '@/utils/simpleInterview';
 import { useEffect, useState } from 'react';
 import {
   FlatList,
@@ -74,7 +74,7 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
     } else {
       showCrossPlatformAlert({
         title: 'Daily Check-in',
-        message: `${formatDate(interview.timestamp)} at ${formatTime(interview.timestamp)}\n\nMood: ${getRatingDescription(interview.mood_rating)} (${interview.mood_rating}/7) ${getRatingEmoji(interview.mood_rating)}\nEnergy: ${getRatingDescription(interview.energy_rating)} (${interview.energy_rating}/7) ⚡`
+        message: `${formatDate(interview.timestamp)} at ${formatTime(interview.timestamp)}\n\nMood: ${getRatingDescription(interview.mood_rating)} (${interview.mood_rating}/7) ${getRatingEmoji(interview.mood_rating)}\nEnergy: ${getRatingDescription(interview.energy_rating)} (${interview.energy_rating}/7) ${getEnergyEmoji(interview.energy_rating)}`
       });
     }
   };
@@ -147,7 +147,7 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
         {/* Energy Rating */}
         <View className="flex-1 ml-3">
           <View className="flex-row items-center mb-2">
-            <Text className="text-lg mr-2">⚡</Text>
+            <Text className="text-lg mr-2">{getEnergyEmoji(item.energy_rating)}</Text>
             <Text className="text-sm font-medium text-gray-700">Energy</Text>
           </View>
           <View className="flex-row items-center">

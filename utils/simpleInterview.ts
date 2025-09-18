@@ -106,7 +106,7 @@ export function getRatingDescription(rating: number): string {
   }
 }
 
-// Simple function to get rating emoji
+// Simple function to get mood rating emoji
 export function getRatingEmoji(rating: number): string {
   switch (rating) {
     case 1: return '😔';
@@ -116,6 +116,20 @@ export function getRatingEmoji(rating: number): string {
     case 5: return '😊';
     case 6: return '😄';
     case 7: return '🤩';
+    default: return '❓';
+  }
+}
+
+// Simple function to get energy rating emoji
+export function getEnergyEmoji(rating: number): string {
+  switch (rating) {
+    case 1: return '😴'; // Very low energy - sleeping
+    case 2: return '😪'; // Low energy - tired bubble
+    case 3: return '🥱'; // Below average - yawning
+    case 4: return '🙂'; // Average - content
+    case 5: return '😝'; // Above average - good
+    case 6: return '😜'; // High energy - happy
+    case 7: return '🤪'; // Very high energy - ecstatic
     default: return '❓';
   }
 }
