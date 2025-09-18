@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from sqlmodel import Field, SQLModel, Relationship
 from .engine import DB_ENGINE
 
@@ -36,7 +36,7 @@ class Question(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True, index=True)
     interview_id: int = Field(foreign_key="interview.id", index=True)
     question_id: int
-    display_duration: timedelta
+    display_duration: int  # Duration in milliseconds
     response_id: int
     response_weight: float
     response_text: str
