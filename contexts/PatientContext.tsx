@@ -6,6 +6,7 @@ interface PatientContextType {
   setSelectedPatient: (patient: Patient | null) => void;
   patients: Patient[];
   setPatients: (patients: Patient[]) => void;
+  refreshInterviews: () => void;
 }
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
@@ -17,6 +18,7 @@ interface PatientProviderProps {
 export function PatientProvider({ children }: PatientProviderProps) {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [interviewRefreshTrigger, setInterviewRefreshTrigger] = useState(0);
 
   // Load patients on context initialization
   useEffect(() => {
@@ -36,12 +38,17 @@ export function PatientProvider({ children }: PatientProviderProps) {
     loadPatients();
   }, []);
 
+  const refreshInterviews = () => {
+    setInterviewRefreshTrigger(prev => prev + 1);
+  };
+
   return (
     <PatientContext.Provider value={{
       selectedPatient,
       setSelectedPatient,
       patients,
       setPatients,
+      refreshInterviews,
     }}>
       {children}
     </PatientContext.Provider>

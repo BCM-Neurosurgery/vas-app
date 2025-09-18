@@ -1,72 +1,43 @@
-import InterviewDrawer from '@/components/InterviewDrawer';
+// SIMPLIFIED HOME SCREEN FOR 2-SCALE RATING SYSTEM
 import QuickStart from '@/components/QuickStart';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import { InterviewOrchestrator } from '@/utils/interviewOrchestrator';
+import SimpleInterviewModal from '@/components/SimpleInterviewModal';
+import { usePatient } from '@/contexts/PatientContext';
+import { SimpleInterview } from '@/utils/database';
 import { useState } from 'react';
-import { TouchableOpacity, View } from 'react-native';
+import { View } from 'react-native';
 
 export default function HomeScreen() {
- 
-  // Parse the patient data from the route params
-  const [interviewOrchestrator, setInterviewOrchestrator] = useState<InterviewOrchestrator | null>(null);
-  const [isInterviewDrawerVisible, setIsInterviewDrawerVisible] = useState(false);
-  const [isInterviewMinimized, setIsInterviewMinimized] = useState(false);
+  const { selectedPatient, refreshInterviews } = usePatient();
+  const [isSimpleInterviewVisible, setIsSimpleInterviewVisible] = useState(false);
 
-  const handleStartInterview = (orchestrator: InterviewOrchestrator) => {
-    setInterviewOrchestrator(orchestrator);
-    setIsInterviewDrawerVisible(true);
-    setIsInterviewMinimized(false);
+  const handleStartSimpleInterview = () => {
+    setIsSimpleInterviewVisible(true);
   };
 
-  const handleShowMinimizedInterview = (orchestrator: InterviewOrchestrator) => {
-    setInterviewOrchestrator(orchestrator);
-    setIsInterviewDrawerVisible(true);
-    setIsInterviewMinimized(false);
+  const handleCloseSimpleInterview = () => {
+    setIsSimpleInterviewVisible(false);
   };
 
-  const handleCloseInterview = () => {
-    setIsInterviewDrawerVisible(false);
-    setInterviewOrchestrator(null);
-  };
-
-  const handleMinimizeInterview = () => {
-    setIsInterviewDrawerVisible(false);
-    setIsInterviewMinimized(true);
-  };
-
-  const handleRestoreMinimizedInterview = () => {
-    if (interviewOrchestrator) {
-      interviewOrchestrator.restoreInterview();
-      setIsInterviewDrawerVisible(true);
-      setIsInterviewMinimized(false);
-    }
+  const handleInterviewSaved = (interview: SimpleInterview) => {
+    console.log('Interview saved:', interview);
+    // Refresh the interviews list
+    refreshInterviews();
   };
 
   return (
     <View className="flex-1">
       <QuickStart 
-        onStartInterview={handleStartInterview}
-        onShowMinimizedInterview={handleShowMinimizedInterview}
+        onStartInterview={handleStartSimpleInterview}
       />
 
-      {/* Interview Drawer */}
-      {interviewOrchestrator && (
-        <InterviewDrawer
-          orchestrator={interviewOrchestrator}
-          isVisible={isInterviewDrawerVisible}
-          onClose={handleCloseInterview}
-          onMinimize={handleMinimizeInterview}
+      {/* Simple Interview Modal */}
+      {selectedPatient && (
+        <SimpleInterviewModal
+          patientId={selectedPatient.id}
+          isVisible={isSimpleInterviewVisible}
+          onClose={handleCloseSimpleInterview}
+          onSave={handleInterviewSaved}
         />
-      )}
-
-      {/* Minimized Interview Indicator */}
-      {isInterviewMinimized && interviewOrchestrator && (
-        <TouchableOpacity
-          onPress={handleRestoreMinimizedInterview}
-          className="absolute top-16 right-4 bg-blue-500 p-3 rounded-full shadow-lg"
-        >
-          <IconSymbol name="doc.text" size={20} color="white" />
-        </TouchableOpacity>
       )}
     </View>
   );

@@ -1,3 +1,4 @@
+import ConnectivityWarning from '@/components/ConnectivityWarning';
 import PreflightChecks from '@/components/PreflightChecks';
 import { PatientProvider } from '@/contexts/PatientContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -14,8 +15,8 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
-  // set preflighht default to false for now as it is not implemented yet
-  const [showPreflight, setShowPreflight] = useState(false);
+  // Enable preflight checks on startup
+  const [showPreflight, setShowPreflight] = useState(true);
 
   if (!loaded) {
     // Async font loading only occurs in development.
@@ -29,6 +30,7 @@ export default function RootLayout() {
   return ( 
   <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
     <PatientProvider>
+      <ConnectivityWarning />
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
