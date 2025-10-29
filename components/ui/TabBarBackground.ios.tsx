@@ -15,5 +15,7 @@ export default function BlurTabBarBackground() {
 }
 
 export function useBottomTabOverflow() {
+  // With the updated _layout.tsx structure ensuring Stack renders first,
+  // the navigation context should be available when components using this hook render.
   return useBottomTabBarHeight();
 }
