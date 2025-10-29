@@ -53,7 +53,7 @@ export default function QuickStart({ onStartInterview }: QuickStartProps) {
             className={`flex-row items-center justify-center p-6 rounded-xl ${
               !selectedPatient
                 ? 'bg-gray-300 dark:bg-gray-700'
-                : 'bg-gradient-to-r from-blue-500 to-purple-600 active:from-blue-600 active:to-purple-700'
+                : 'bg-blue-300 dark:bg-blue-700'
             }`}
           >
             <IconSymbol name="heart.fill" size={24} color="white" />
