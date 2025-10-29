@@ -115,7 +115,7 @@ export default function QuickStart({ onStartInterview }: QuickStartProps) {
             1. Select a patient in Settings
           </ThemedText>
           <ThemedText className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-            2. Click "Start Daily Check-in" to begin
+            2. Click &apos;Start Daily Check-in&apos; to begin
           </ThemedText>
           <ThemedText className="text-sm text-gray-600 dark:text-gray-400 mb-2">
             3. Use sliders to rate your mood and energy (1-7)
