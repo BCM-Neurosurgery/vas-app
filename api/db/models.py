@@ -16,6 +16,7 @@ class SimpleInterview(SQLModel, table=True):
     patient_id: int = Field(foreign_key="patient.id", index=True)
     mood_rating: int = Field()  # 1-7 scale
     energy_rating: int = Field()  # 1-7 scale
+    pain_rating: int = Field()  # 1-7 scale
     timestamp: datetime = Field(default_factory=datetime.now)
     status: str = Field(default="completed")  # completed, draft
     

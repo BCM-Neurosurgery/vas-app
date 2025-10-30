@@ -50,10 +50,10 @@ export default function QuickStart({ onStartInterview }: QuickStartProps) {
           <TouchableOpacity
             onPress={onStartInterview}
             disabled={!selectedPatient}
-            className={`flex-row items-center justify-center p-6 rounded-xl ${
+            className={`flex-row items-center justify-center p-10 rounded-xl ${
               !selectedPatient
                 ? 'bg-gray-300 dark:bg-gray-700'
-                : 'bg-blue-300 dark:bg-blue-700'
+                : 'bg-amber-400 dark:bg-amber-700'
             }`}
           >
             <IconSymbol name="heart.fill" size={24} color="white" />

@@ -6,10 +6,10 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { databaseAPI, SimpleInterview } from '@/utils/database';
-import { getEnergyEmoji, getRatingDescription, getRatingEmoji, validateRatings } from '@/utils/simpleInterview';
+import { getEnergyEmoji, getPainEmoji, getRatingDescription, getRatingEmoji, validateRatings } from '@/utils/simpleInterview';
 import Slider from '@react-native-community/slider';
 import { useState } from 'react';
-import { Modal, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface SimpleInterviewModalProps {
   patientId: number;
@@ -26,10 +26,11 @@ export default function SimpleInterviewModal({
 }: SimpleInterviewModalProps) {
   const [moodRating, setMoodRating] = useState(4); // Default to middle (4)
   const [energyRating, setEnergyRating] = useState(4); // Default to middle (4)
+  const [painRating, setPainRating] = useState(4); // Default to middle (4)
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSave = async () => {
-    if (!validateRatings(moodRating, energyRating)) {
+    if (!validateRatings(moodRating, energyRating, painRating)) {
       showCrossPlatformAlert({
         title: 'Invalid Ratings',
         message: 'Please ensure both mood and energy ratings are between 1 and 7.'
@@ -43,6 +44,7 @@ export default function SimpleInterviewModal({
         patient_id: patientId,
         mood_rating: moodRating,
         energy_rating: energyRating,
+        pain_rating: painRating,
         status: 'completed'
       });
 
@@ -53,7 +55,9 @@ export default function SimpleInterviewModal({
       // Show success message after closing
       showCrossPlatformAlert({
         title: 'Interview Saved! 🎉',
-        message: `Your mood: ${getRatingDescription(moodRating)} (${moodRating}/7)\nYour energy: ${getRatingDescription(energyRating)} (${energyRating}/7)`,
+        message: `Your mood: ${getRatingDescription(moodRating)} (${moodRating}/7)\n` +
+        `Your energy: ${getRatingDescription(energyRating)} (${energyRating}/7)\n` +
+        `Your pain: ${getRatingDescription(painRating)} (${painRating}/7)\n`,
         buttons: [{ text: 'Great!' }]
       });
     } catch (error) {
@@ -71,6 +75,7 @@ export default function SimpleInterviewModal({
     // Reset to default values
     setMoodRating(4);
     setEnergyRating(4);
+    setPainRating(4);
     onClose();
   };
 
@@ -97,17 +102,30 @@ export default function SimpleInterviewModal({
         </ThemedText>
       </View>
       
-      <Slider
-        style={{ width: '100%', height: 40 }}
-        minimumValue={1}
-        maximumValue={7}
-        step={1}
-        value={value}
-        onValueChange={onValueChange}
-        minimumTrackTintColor={color}
-        maximumTrackTintColor="#E5E7EB"
-        thumbTintColor={color}
-      />
+      <View className="relative" style={{ width: '100%', height: 40 }}>
+        {/* Center tick overlay */}
+        <View 
+          pointerEvents="none" 
+          style={StyleSheet.absoluteFillObject} 
+          className="items-center justify-center"
+          >
+          <View
+            style={{ width: 2, height: 50, borderRadius: 1}}
+            className="bg-gray-300 dark:bg-gray-600"
+          />
+        </View>
+        <Slider
+          style={{ width: '100%', height: 40 }}
+          minimumValue={1}
+          maximumValue={7}
+          step={1}
+          value={value}
+          onValueChange={onValueChange}
+          minimumTrackTintColor={color}
+          maximumTrackTintColor="#E5E7EB"
+          thumbTintColor={color}
+        />
+      </View>
       
       <View className="flex-row justify-between mt-2">
         <ThemedText className="text-xs text-gray-500">1 - Very Low</ThemedText>
@@ -161,6 +179,15 @@ export default function SimpleInterviewModal({
             energyRating,
             setEnergyRating,
             '#F59E0B'
+          )}
+
+           {/* Pain Rating */}
+           {renderRatingSlider(
+            'Pain',
+            getPainEmoji(painRating),
+            painRating,
+            setPainRating,
+            '#E02402'
           )}
 
           {/* Save Button */}
