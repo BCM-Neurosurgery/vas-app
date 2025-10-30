@@ -4,7 +4,7 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { usePatient } from '@/contexts/PatientContext';
 import { databaseAPI, Patient, SimpleInterview } from '@/utils/database';
-import { getEnergyEmoji, getRatingDescription, getRatingEmoji } from '@/utils/simpleInterview';
+import { getEnergyEmoji, getPainEmoji, getRatingDescription, getRatingEmoji } from '@/utils/simpleInterview';
 import { useEffect, useState } from 'react';
 import {
   FlatList,
@@ -95,6 +95,14 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
     return '#8B5CF6'; // Purple
   };
 
+  const getPainColor = (rating: number) => {
+    if (rating <= 2) return '#2EC965'; // Green
+    if (rating <= 3) return '#F2EF3A'; // Yellow
+    if (rating <= 4) return '#DE3333'; // Red
+    if (rating <= 5) return '#290404'; // Maroon
+    return '#171717'; // Black
+  };
+
   const renderInterviewItem = ({ item }: { item: SimpleInterview }) => (
     <TouchableOpacity
       className="bg-white rounded-xl p-5 mb-4 shadow-sm border border-gray-100"
@@ -163,8 +171,29 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
             </Text>
           </View>
         </View>
+
+        {/* Pain Rating */}
+        <View className="flex-1 ml-3">
+          <View className="flex-row items-center mb-2">
+            <Text className="text-lg mr-2">{getPainEmoji(item.pain_rating)}</Text>
+            <Text className="text-sm font-medium text-gray-700">Pain</Text>
+          </View>
+          <View className="flex-row items-center">
+            <View 
+              className="w-3 h-3 rounded-full mr-2"
+              style={{ backgroundColor: getPainColor(item.pain_rating) }}
+            />
+            <Text className="text-lg font-bold" style={{ color: getPainColor(item.pain_rating) }}>
+              {item.pain_rating}/7
+            </Text>
+            <Text className="text-sm text-gray-500 ml-2">
+              {getRatingDescription(item.pain_rating)}
+            </Text>
+          </View>
+        </View>
       </View>
 
+        
       {/* Tap indicator */}
       <View className="absolute right-5 top-1/2 -mt-2">
         <IconSymbol name="chevron.right" size={16} color="#007AFF" />

@@ -132,6 +132,7 @@ def update_interview(interview_data: SimpleInterview) -> SimpleInterview:
         interview.timestamp = interview_data.timestamp
         interview.mood_rating = interview_data.mood_rating
         interview.energy_rating = interview_data.energy_rating
+        interview.pain_rating= interview_data.pain_rating
         session.add(interview)
         session.commit()
     return interview
@@ -191,6 +192,7 @@ def create_simple_interview(interview_data: dict) -> SimpleInterview:
             patient_id=interview_data["patient_id"],
             mood_rating=interview_data["mood_rating"],
             energy_rating=interview_data["energy_rating"],
+            pain_rating=interview_data["pain_rating"],
             timestamp=timestamp,
             status=interview_data.get("status", "completed")
         )

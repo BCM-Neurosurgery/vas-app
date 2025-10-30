@@ -14,6 +14,7 @@ export interface SimpleInterview {
   patient_id: number;
   mood_rating: number;  // 1-7 scale
   energy_rating: number;  // 1-7 scale
+  pain_rating: number;
   timestamp: Date;
   status: 'completed' | 'draft';
 }
@@ -138,6 +139,7 @@ export const databaseAPI = {
         patient_id: interview.patient_id,
         mood_rating: interview.mood_rating,
         energy_rating: interview.energy_rating,
+        pain_rating: interview.pain_rating,
         timestamp: new Date(interview.timestamp),
         status: interview.status
       }));
@@ -155,6 +157,7 @@ export const databaseAPI = {
           patient_id: patient.id,
           mood_rating: 5,
           energy_rating: 6,
+          pain_rating: 4,
           timestamp: twoHoursAgo,
           status: 'completed'
         },
@@ -163,6 +166,7 @@ export const databaseAPI = {
           patient_id: patient.id,
           mood_rating: 3,
           energy_rating: 4,
+          pain_rating: 5,
           timestamp: yesterday,
           status: 'completed'
         },
@@ -171,6 +175,7 @@ export const databaseAPI = {
           patient_id: patient.id,
           mood_rating: 6,
           energy_rating: 7,
+          pain_rating: 3,
           timestamp: threeDaysAgo,
           status: 'completed'
         }
@@ -183,6 +188,7 @@ export const databaseAPI = {
     patient_id: number;
     mood_rating: number;
     energy_rating: number;
+    pain_rating: number;
     status?: 'completed' | 'draft';
   }): Promise<SimpleInterview> {
     try {
@@ -208,6 +214,7 @@ export const databaseAPI = {
         patient_id: newInterview.patient_id,
         mood_rating: newInterview.mood_rating,
         energy_rating: newInterview.energy_rating,
+        pain_rating: newInterview.pain_rating,
         timestamp: new Date(newInterview.timestamp),
         status: newInterview.status
       };
@@ -219,6 +226,7 @@ export const databaseAPI = {
         patient_id: interviewData.patient_id,
         mood_rating: interviewData.mood_rating,
         energy_rating: interviewData.energy_rating,
+        pain_rating: interviewData.pain_rating,
         timestamp: new Date(),
         status: interviewData.status || 'completed'
       };

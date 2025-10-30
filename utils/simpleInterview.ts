@@ -88,8 +88,10 @@ export async function getSimpleInterviews(patientId: number): Promise<SimpleInte
 }
 
 // Simple function to validate ratings (1-7)
-export function validateRatings(moodRating: number, energyRating: number): boolean {
-  return moodRating >= 1 && moodRating <= 7 && energyRating >= 1 && energyRating <= 7;
+export function validateRatings(moodRating: number, energyRating: number, painRating: number): boolean {
+  return (moodRating >= 1 && moodRating <= 7) 
+  && (energyRating >= 1 && energyRating <= 7)
+  && (painRating >= 1 && painRating <= 7);
 }
 
 // Simple function to get rating description
@@ -130,6 +132,20 @@ export function getEnergyEmoji(rating: number): string {
     case 5: return '😝'; // Above average - good
     case 6: return '😜'; // High energy - happy
     case 7: return '🤪'; // Very high energy - ecstatic
+    default: return '❓';
+  }
+}
+
+// Simple function to get pain rating emoji
+export function getPainEmoji(rating: number): string {
+  switch (rating) {
+    case 1: return '🙂'; // No pain!
+    case 2: return '😕'; // Slight discomfort
+    case 3: return '🙁'; // Minor pain
+    case 4: return '😞'; // Moderate pain
+    case 5: return '🤕'; // Quite painful
+    case 6: return '😣'; // Super painful
+    case 7: return '😖'; // Utterly crummy
     default: return '❓';
   }
 }
