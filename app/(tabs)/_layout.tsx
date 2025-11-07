@@ -1,11 +1,13 @@
+import { showCrossPlatformAlert } from '@/components/CrossPlatformAlert';
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { usePatient } from '@/contexts/PatientContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { registerForPushNotificationsAsync } from '@/notifications/registerPush';
 import { Tabs } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, Text, TouchableOpacity } from 'react-native';
 import SettingsDrawer from '../../components/SettingsDrawer';
 
@@ -34,9 +36,25 @@ const SettingsButton = ({ onPress, color }: { onPress: () => void; color: string
 export default function TabLayoutContent() {
   const colorScheme = useColorScheme();
   const [showSettings, setShowSettings] = useState(false);
+  const [pushToken, setPushToken] = useState('');
   const { selectedPatient, setSelectedPatient } = usePatient();
 
   const tintColor = Colors[colorScheme ?? 'light'].tint;
+
+  // make sure token is registered, or notify if not
+  useEffect(() => {
+    registerForPushNotificationsAsync(process.env.EXPO_PUBLIC_DATABASE_URL)
+    .then(res => {
+      setPushToken(res.expo_push_token);
+      console.log('successfully registered push token');
+    })
+    .catch(err => {
+      showCrossPlatformAlert({
+        title: 'push token error notification', 
+        message: `issue registering push token: ${err}`
+      })
+    })
+  }, []);
 
   return (
     <>
@@ -77,6 +95,7 @@ export default function TabLayoutContent() {
         onClose={() => setShowSettings(false)}
         selectedPatient={selectedPatient}
         onPatientChange={setSelectedPatient}
+        pushToken={pushToken}
       />
     </>
   );

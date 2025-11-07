@@ -1,12 +1,29 @@
 from .db.engine import DB_ENGINE
 from .db.models import *
+from .db.jobs import send_due_notifications, check_expo_receipts
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 import os
+from contextlib import asynccontextmanager
 import pandas as pd
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from datetime import datetime, timedelta
+import pytz
 
-app = FastAPI()
+scheduler = AsyncIOScheduler()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # add job to scheduler and start it
+    scheduler.add_job(send_due_notifications, "cron", second="0")
+    scheduler.add_job(check_expo_receipts, "cron", minute="*/5")
+    scheduler.start()
+    yield
+    # shut down scheduler
+    scheduler.shutdown(wait=False)
+
+app = FastAPI(lifespan=lifespan)
 
 # Add CORS middleware
 app.add_middleware(
@@ -154,8 +171,6 @@ def get_simple_interviews(patient_id: int) -> list[SimpleInterview]:
 def create_simple_interview(interview_data: dict) -> SimpleInterview:
     try:
         # Parse timestamp if provided, otherwise use current time
-        from datetime import datetime
-        import pytz
         if interview_data.get("timestamp"):
             try:
                 # Parse ISO string and convert to US Central time
@@ -205,3 +220,106 @@ def create_simple_interview(interview_data: dict) -> SimpleInterview:
     except Exception as e:
         print(f"Error creating simple interview: {e}")
         raise e
+
+@app.post("/push/register")
+def add_push_registration(registration: PushRegistration) -> PushRegistration:
+    with Session(DB_ENGINE) as session:
+        session.add(registration)
+        session.commit()
+        session.refresh(registration)
+    return registration
+
+@app.get("/push/{token}")
+def get_push_registration(token: str):
+    try:
+        statement = select(PushRegistration).where(PushRegistration.expo_push_token == token)
+        with Session(DB_ENGINE) as session:
+            result = session.exec(statement).first()
+            return result
+    except Exception as e:
+        print(f"Unable to fetch token registration {token}: {e}")
+        return None
+
+@app.post("/admin/schedule/create")
+def create_schedule(schedule_data: dict) -> NotificationSchedule:
+    try:
+        # get token id from token string 
+        token_str = schedule_data["expo_push_token"]
+        statement = select(PushRegistration).where(PushRegistration.expo_push_token == token_str)
+        with Session(DB_ENGINE) as session:
+            result = session.exec(statement).first()
+            token_id = result.id
+
+        # create schedule item
+        start_time_iso = datetime.fromisoformat(schedule_data["start_time_iso"])
+        schedule = NotificationSchedule(
+            token_id=token_id,
+            freq_minutes=schedule_data["freq_minutes"],
+            duration_days=schedule_data["duration_days"],
+            start_time_iso=start_time_iso,
+            admin_timezone=schedule_data["admin_timezone"],
+            active=True,
+        )
+
+        # post to db
+        with Session(DB_ENGINE) as session:
+            session.add(schedule)
+            session.commit()
+            session.refresh(schedule)
+
+        # create notification logs as needed
+        t = start_time_iso
+        end_time_iso = start_time_iso + timedelta(days=schedule_data["duration_days"])
+        step = timedelta(minutes=schedule_data["freq_minutes"])
+        logs = []
+        while t < end_time_iso:
+            logs.append(NotificationLog(
+                token_id=token_id,
+                schedule_id=schedule.id,
+                planned_at_utc=t,
+                status="pending"
+            ))
+            t += step
+
+        # commit all notification logs
+        with Session(DB_ENGINE) as session:
+            session.add_all(logs)
+            session.commit()
+        return schedule
+    except Exception as e:
+        print(f"Error creating notification schedule: {e}")
+        raise e
+    
+
+@app.get("/admin/schedule/get")
+def get_schedule() -> NotificationSchedule | None:
+    # get current active schedule if it exists
+    statement = select(NotificationSchedule).where(NotificationSchedule.active == True)
+    with Session(DB_ENGINE) as session:
+        result = session.exec(statement).first()
+        return result
+
+@app.post("/admin/schedule/cancel")
+def cancel_schedule() -> NotificationSchedule | None:
+    # find currently active schedule
+    statement = select(NotificationSchedule).where(NotificationSchedule.active == True)
+    with Session(DB_ENGINE) as session:
+        schedule = session.exec(statement).first()
+        # if there is an active result, flip flag and commit
+        if schedule:
+            schedule.active = False
+            session.add(schedule)
+            session.commit()
+
+            # also cancel all associated pending notification logs
+            statement = select(NotificationLog).where(NotificationLog.schedule_id == schedule.id)
+            results = session.exec(statement).all()
+            if results:
+                for result in results:
+                    session.delete(result)
+                    session.commit()
+
+    return schedule
+
+
+    
