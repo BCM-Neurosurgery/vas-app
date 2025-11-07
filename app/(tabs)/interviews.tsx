@@ -2,7 +2,7 @@ import { showCrossPlatformAlert } from '@/components/CrossPlatformAlert';
 import SimpleInterviewList from '@/components/SimpleInterviewList';
 import { usePatient } from '@/contexts/PatientContext';
 import { SimpleInterview } from '@/utils/database';
-import { getEnergyEmoji, getRatingEmoji } from '@/utils/simpleInterview';
+import { getEnergyEmoji, getRatingEmoji, getPainEmoji } from '@/utils/simpleInterview';
 import { Text, View } from 'react-native';
 
 export default function InterviewsScreen() {
@@ -11,7 +11,10 @@ export default function InterviewsScreen() {
   const handleInterviewSelect = (interview: SimpleInterview) => {
     showCrossPlatformAlert({
       title: 'Daily Check-in Details',
-      message: `Mood: ${interview.mood_rating}/7 ${getRatingEmoji(interview.mood_rating)}\nEnergy: ${interview.energy_rating}/7 ${getEnergyEmoji(interview.energy_rating)}\n\nDate: ${interview.timestamp.toLocaleDateString()}\nTime: ${interview.timestamp.toLocaleTimeString()}`
+      message: `Mood: ${interview.mood_rating}/7 ${getRatingEmoji(interview.mood_rating)}\n` + 
+      `Energy: ${interview.energy_rating}/7 ${getEnergyEmoji(interview.energy_rating)}\n` +
+      `Pain: ${interview.pain_rating}/7 ${getPainEmoji(interview.pain_rating)}\n\n` +
+      `Date: ${interview.timestamp.toLocaleDateString()}\nTime: ${interview.timestamp.toLocaleTimeString()}`
     });
   };
 

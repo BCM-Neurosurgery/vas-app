@@ -19,6 +19,16 @@ export interface SimpleInterview {
   status: 'completed' | 'draft';
 }
 
+export interface NotificationSchedule {
+  id: number;
+  token_id: number;
+  freq_minutes: number;
+  duration_days: number;
+  start_time_iso: Date;
+  admin_timezone: string;
+  active: boolean;
+}
+
 export const databaseAPI = {
   // ===== PATIENT MANAGEMENT =====
   
@@ -230,6 +240,79 @@ export const databaseAPI = {
         timestamp: new Date(),
         status: interviewData.status || 'completed'
       };
+    }
+  },
+
+  async getSchedule(): Promise<NotificationSchedule | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/schedule/get`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const schedule = await response.json();
+      if (Object.keys(schedule).length === 0) {
+        return null;
+      } else {
+        return {
+          id: schedule.id,
+          token_id: schedule.token_id,
+          freq_minutes: schedule.freq_minutes,
+          duration_days: schedule.duration_days,
+          start_time_iso: schedule.start_time_iso,
+          admin_timezone: schedule.admin_timezone,
+          active: schedule.active,
+        }
+      }
+    } catch (error) {
+      console.log('Error fetching schedule:', error);
+      return null
+    }
+  },
+
+  async createSchedule(scheduleData: {
+    expo_push_token: string,
+    freq_minutes: number,
+    duration_days: number,
+    start_time_iso: Date,
+    admin_timezone: string,
+    active: boolean
+  }): Promise<NotificationSchedule | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/schedule/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(scheduleData),
+      });
+     
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const schedule = await response.json();
+      return schedule;
+      } catch (error) {
+      console.log('Error fetching schedule:', error);
+      return null;
+    }
+  },
+
+  async cancelSchedule(): Promise<NotificationSchedule> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/schedule/cancel`, {
+        method: 'POST',
+      });
+     
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const schedule = await response.json();
+      return schedule;
+      } catch (error) {
+      console.log('Error cancelling schedule:', error);
+      throw new Error('Failed to cancel schedule.');
     }
   }
 };
