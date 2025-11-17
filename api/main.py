@@ -146,7 +146,8 @@ def update_interview(interview_data: SimpleInterview) -> SimpleInterview:
         results = session.exec(statement)
         interview = results.one()
         interview.status = interview_data.status
-        interview.timestamp = interview_data.timestamp
+        interview.timestamp_start = interview_data.timestamp_start
+        interview.timestamp_save = interview_data.timestamp_save
         interview.mood_rating = interview_data.mood_rating
         interview.energy_rating = interview_data.energy_rating
         interview.pain_rating= interview_data.pain_rating
@@ -171,10 +172,10 @@ def get_simple_interviews(patient_id: int) -> list[SimpleInterview]:
 def create_simple_interview(interview_data: dict) -> SimpleInterview:
     try:
         # Parse timestamp if provided, otherwise use current time
-        if interview_data.get("timestamp"):
+        if interview_data.get("timestamp_save"):
             try:
                 # Parse ISO string and convert to US Central time
-                timestamp_str = interview_data["timestamp"]
+                timestamp_str = interview_data["timestamp_save"]
                 if timestamp_str.endswith('Z'):
                     timestamp_str = timestamp_str[:-1]  # Remove Z suffix
                 timestamp = datetime.fromisoformat(timestamp_str)
@@ -191,15 +192,44 @@ def create_simple_interview(interview_data: dict) -> SimpleInterview:
                     timestamp = utc_tz.localize(timestamp).astimezone(central_tz)
                 
                 # Convert to naive datetime for MySQL
-                timestamp = timestamp.replace(tzinfo=None)
+                timestamp_save = timestamp.replace(tzinfo=None)
             except ValueError:
                 # If parsing fails, use current US Central time
                 central_tz = pytz.timezone('US/Central')
-                timestamp = datetime.now(central_tz).replace(tzinfo=None)
+                timestamp_save = datetime.now(central_tz).replace(tzinfo=None)
         else:
             # Use current US Central time
             central_tz = pytz.timezone('US/Central')
-            timestamp = datetime.now(central_tz).replace(tzinfo=None)
+            timestamp_save = datetime.now(central_tz).replace(tzinfo=None)
+        if interview_data.get("timestamp_start"):
+            try:
+                # Parse ISO string and convert to US Central time
+                timestamp_str = interview_data["timestamp_start"]
+                if timestamp_str.endswith('Z'):
+                    timestamp_str = timestamp_str[:-1]  # Remove Z suffix
+                timestamp = datetime.fromisoformat(timestamp_str)
+                
+                # Convert to US Central time
+                if timestamp.tzinfo is not None:
+                    # If timezone-aware, convert to US Central
+                    central_tz = pytz.timezone('US/Central')
+                    timestamp = timestamp.astimezone(central_tz)
+                else:
+                    # If naive, assume UTC and convert to US Central
+                    utc_tz = pytz.timezone('UTC')
+                    central_tz = pytz.timezone('US/Central')
+                    timestamp = utc_tz.localize(timestamp).astimezone(central_tz)
+                
+                # Convert to naive datetime for MySQL
+                timestamp_start = timestamp.replace(tzinfo=None)
+            except ValueError:
+                # If parsing fails, use current US Central time
+                central_tz = pytz.timezone('US/Central')
+                timestamp_start = datetime.now(central_tz).replace(tzinfo=None)
+        else:
+            # Use current US Central time
+            central_tz = pytz.timezone('US/Central')
+            timestamp_start = datetime.now(central_tz).replace(tzinfo=None)
         
         # Create SimpleInterview from the request data
         print(f"Creating interview with timestamp: {timestamp} (type: {type(timestamp)})")
@@ -208,7 +238,8 @@ def create_simple_interview(interview_data: dict) -> SimpleInterview:
             mood_rating=interview_data["mood_rating"],
             energy_rating=interview_data["energy_rating"],
             pain_rating=interview_data["pain_rating"],
-            timestamp=timestamp,
+            timestamp_start=timestamp_start,
+            timestamp_save=timestamp_save,
             status=interview_data.get("status", "completed")
         )
         

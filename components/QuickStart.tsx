@@ -1,4 +1,4 @@
-// SIMPLIFIED QUICK START FOR 2-SCALE RATING SYSTEM
+// SIMPLIFIED QUICK START FOR 3-SCALE RATING SYSTEM
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -20,7 +20,7 @@ export default function QuickStart({ onStartInterview }: QuickStartProps) {
             Daily Check-in
           </ThemedText>
           <ThemedText className="text-base text-center text-gray-600 dark:text-gray-400">
-            Track your mood and energy with a simple 2-scale rating
+            Track your mood and energy with a simple 3-scale rating
           </ThemedText>
         </View>
 

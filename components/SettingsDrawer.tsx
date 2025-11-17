@@ -80,7 +80,7 @@ export default function SettingsDrawer({
       await databaseAPI.setAsLatest(patient);
       
       // Update local state
-      setPatients(prev => prev.map(p => ({ ...p, isLatest: p.id === patient.id })));
+      setPatients(prev => prev.map(p => ({ ...p, latest: p.id === patient.id })));
       onPatientChange(patient);
       onClose();
     } catch (error) {
@@ -123,12 +123,9 @@ export default function SettingsDrawer({
               const newPatient = await databaseAPI.createPatient(newPatientName.trim());
               
               // Update local state
-              setPatients(prev => [...prev.map(p => ({ ...p, isLatest: false })), newPatient]);
-              onPatientChange(newPatient);
-              
+              setPatients(prev => [...prev.map(p => ({ ...p, latest: false })), newPatient]);
               setNewPatientName('');
               setShowNewPatientModal(false);
-              onClose();
             } catch (error) {
               console.error('Failed to create patient:', error);
               showCrossPlatformAlert({
