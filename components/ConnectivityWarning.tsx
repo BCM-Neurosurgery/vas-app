@@ -20,8 +20,8 @@ export default function ConnectivityWarning({ onRetry }: ConnectivityWarningProp
       
       const COMMENT_SERVER_URL = process.env.EXPO_PUBLIC_COMMENT_SERVER_URL;
       
-      const response = await fetch(`${COMMENT_SERVER_URL}/health`, {
-        method: 'HEAD',
+      const response = await fetch(`${COMMENT_SERVER_URL}/nsp_health`, {
+        method: 'GET',
         signal: controller.signal,
       });
       

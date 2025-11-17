@@ -58,8 +58,12 @@ export default function PreflightChecks({ onComplete }: PreflightChecksProps) {
       
       const COMMENT_SERVER_URL = process.env.EXPO_PUBLIC_COMMENT_SERVER_URL;
 
-      const response = await fetch(`${COMMENT_SERVER_URL}/health`, {
-        method: 'HEAD',
+      if (!COMMENT_SERVER_URL) {
+        throw new Error('Comment server URL not configured');
+      }
+
+      const response = await fetch(`${COMMENT_SERVER_URL}/nsp_health`, {
+        method: 'GET',
         signal: controller.signal,
       });
       

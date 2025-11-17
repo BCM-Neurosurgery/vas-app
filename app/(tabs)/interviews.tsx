@@ -14,7 +14,7 @@ export default function InterviewsScreen() {
       message: `Mood: ${interview.mood_rating}/7 ${getRatingEmoji(interview.mood_rating)}\n` + 
       `Energy: ${interview.energy_rating}/7 ${getEnergyEmoji(interview.energy_rating)}\n` +
       `Pain: ${interview.pain_rating}/7 ${getPainEmoji(interview.pain_rating)}\n\n` +
-      `Date: ${interview.timestamp.toLocaleDateString()}\nTime: ${interview.timestamp.toLocaleTimeString()}`
+      `Date: ${interview.timestamp_start.toLocaleDateString()}\nTime: ${interview.timestamp_start.toLocaleTimeString()}`
     });
   };
 

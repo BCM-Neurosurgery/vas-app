@@ -74,7 +74,7 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
     } else {
       showCrossPlatformAlert({
         title: 'Daily Check-in',
-        message: `${formatDate(interview.timestamp)} at ${formatTime(interview.timestamp)}\n\nMood: ${getRatingDescription(interview.mood_rating)} (${interview.mood_rating}/7) ${getRatingEmoji(interview.mood_rating)}\nEnergy: ${getRatingDescription(interview.energy_rating)} (${interview.energy_rating}/7) ${getEnergyEmoji(interview.energy_rating)}`
+        message: `${formatDate(interview.timestamp_start)} at ${formatTime(interview.timestamp_save)}\n\nMood: ${getRatingDescription(interview.mood_rating)} (${interview.mood_rating}/7) ${getRatingEmoji(interview.mood_rating)}\nEnergy: ${getRatingDescription(interview.energy_rating)} (${interview.energy_rating}/7) ${getEnergyEmoji(interview.energy_rating)}`
       });
     }
   };
@@ -112,10 +112,11 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
       <View className="flex-row justify-between items-center mb-4">
         <View className="flex-1">
           <Text className="text-base font-semibold text-medical-text-primary">
-            {formatDate(item.timestamp)}
+            {formatDate(item.timestamp_start)}
           </Text>
           <Text className="text-sm text-medical-text-secondary mt-1">
-            {formatTime(item.timestamp)}
+            {`start: ${formatTime(item.timestamp_start)}\n`}
+            {`end: ${formatTime(item.timestamp_save)}`}
           </Text>
         </View>
         <View className="flex-row items-center">
