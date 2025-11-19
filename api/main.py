@@ -1,7 +1,7 @@
 from .db.engine import DB_ENGINE
 from .db.models import *
 from .db.jobs import send_due_notifications, check_expo_receipts
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 import os
@@ -53,25 +53,36 @@ def health_check():
 def dump_db():
     log_path = os.getenv("LOG_PATH")
     if log_path is None:
-        raise ValueError("LOG_PATH is not set")
+        raise HTTPException(status_code=500, detail="LOG_PATH is not set")
     # create dirs for all our patients if they don't exist
     statement = select(Patient)
     with Session(DB_ENGINE) as session:
-        results = session.exec(statement)
-        patient_dirs = [os.path.join(log_path, patient.emu_id) for patient in results]
-        # create questiond dirs as well
-        question_dirs = [os.path.join(patient_dir, "questions") for patient_dir in patient_dirs]
-        os.makedirs(patient_dirs, exist_ok=True)
-        os.makedirs(question_dirs, exist_ok=True)
+        results = session.exec(statement).all()
         # now get all interviews for each patient and output to csv 
         for patient in results:
-            statement = select(SimpleInterview).where(SimpleInterview.patient_id == patient.id)
-            interview_results = session.exec(statement)
-            interview_df = pd.DataFrame([interview.model_dump() for interview in interview_results])
-            interview_df.to_csv(os.path.join(patient_dirs[patient.id], "vas_interview.csv"), index=False)
+            # build a directory per patient
+            # make sure emu_id is a string & safe for paths
+            patient_dir = os.path.join(log_path, str(patient.emu_id))
+            os.makedirs(patient_dir, exist_ok=True)
+
+            # get that patient's interviews
+            interviews = session.exec(
+                select(SimpleInterview).where(SimpleInterview.patient_id == patient.id)
+            ).all()
+
+            if not interviews:
+                # nothing to write for this patient, skip
+                continue
+
+            interview_df = pd.DataFrame(
+                [interview.model_dump() for interview in interviews]
+            )
+
+            csv_path = os.path.join(patient_dir, "vas_interview.csv")
+            interview_df.to_csv(csv_path, index=False)
             
 
-    return {"message": "NOT IMPLEMENTED"}
+    return {"message": "SUCCESSFULLY DUMPED DB"}
 
 @app.get("/patients")
 def get_patients() -> list[Patient]:
