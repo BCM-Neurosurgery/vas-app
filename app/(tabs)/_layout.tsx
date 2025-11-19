@@ -1,5 +1,7 @@
 import { showCrossPlatformAlert } from '@/components/CrossPlatformAlert';
 import { HapticTab } from '@/components/HapticTab';
+import SettingsDrawer from '@/components/SettingsDrawer';
+import SettingsPasswordModal from '@/components/SettingsPasswordModal';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
@@ -9,7 +11,9 @@ import { registerForPushNotificationsAsync } from '@/notifications/registerPush'
 import { Tabs } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, Text, TouchableOpacity } from 'react-native';
-import SettingsDrawer from '../../components/SettingsDrawer';
+
+// NOTE: not a real secret, but fine for a “patient lock”
+const ADMIN_PASSWORD = process.env.EXPO_PUBLIC_SETTINGS_PASSWORD;
 
 // Move SettingsButton outside to avoid re-creation issues
 const SettingsButton = ({ onPress, color }: { onPress: () => void; color: string }) => (
@@ -38,6 +42,7 @@ export default function TabLayoutContent() {
   const [showSettings, setShowSettings] = useState(false);
   const [pushToken, setPushToken] = useState('');
   const { selectedPatient, setSelectedPatient } = usePatient();
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const tintColor = Colors[colorScheme ?? 'light'].tint;
 
@@ -56,6 +61,22 @@ export default function TabLayoutContent() {
     })
   }, []);
 
+  const handleSettingsPress = () => {
+    // if no password configured, just open settings directly
+    if (!ADMIN_PASSWORD) {
+      setShowSettings(true);
+      return;
+    }
+
+    // Password required every time
+    setShowPasswordModal(true);
+  };
+
+  const handlePasswordSuccess = () => {
+    setShowPasswordModal(false);
+    setShowSettings(true);
+  }
+
   return (
     <>
       <Tabs
@@ -71,7 +92,7 @@ export default function TabLayoutContent() {
             },
             default: {},
           }),
-          headerRight: () => <SettingsButton onPress={() => setShowSettings(true)} color={tintColor} />,
+          headerRight: () => <SettingsButton onPress={handleSettingsPress} color={tintColor} />,
         }}>
         <Tabs.Screen
           name="index"
@@ -96,6 +117,13 @@ export default function TabLayoutContent() {
         selectedPatient={selectedPatient}
         onPatientChange={setSelectedPatient}
         pushToken={pushToken}
+      />
+
+      <SettingsPasswordModal
+        visible={showPasswordModal}
+        onCancel={() => setShowPasswordModal(false)}
+        onSuccess={handlePasswordSuccess}
+        adminPassword={ADMIN_PASSWORD}
       />
     </>
   );
