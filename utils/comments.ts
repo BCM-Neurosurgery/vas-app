@@ -13,7 +13,7 @@ export const commentAPI = {
 
         const timeString = `${day}${month}${year}-${hours}${minutes}`;
 
-        return `${emuId}_${timeString}`;
+        return `mood-checkin_${emuId}_${timeString}`;
     },
     async startComment(taskName: string): Promise<string> {
         try {
