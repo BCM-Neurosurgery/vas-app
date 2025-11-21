@@ -8,6 +8,18 @@ import { SimpleInterview } from '@/utils/database';
 import { useState } from 'react';
 import { View } from 'react-native';
 
+async function withAbortTimeout<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  ms = 3000
+): Promise<T> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fn(controller.signal);
+  } finally {
+    clearTimeout(id);
+  }
+}
 
 export default function HomeScreen() {
   const { selectedPatient, refreshInterviews } = usePatient();
@@ -20,8 +32,8 @@ export default function HomeScreen() {
 
     return new Promise((resolve) => {
       const attempt = async () => {
-        const res = await api(taskName);
-
+        const res = await withAbortTimeout((signal) => api(taskName, { signal }), 3000);
+        
         const success = res.startsWith('success');
 
         if (success) {

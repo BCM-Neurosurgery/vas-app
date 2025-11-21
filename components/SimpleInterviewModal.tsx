@@ -8,8 +8,8 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { databaseAPI, SimpleInterview } from '@/utils/database';
 import { getEnergyEmoji, getPainEmoji, getRatingDescription, getRatingEmoji, validateRatings } from '@/utils/simpleInterview';
 import Slider from '@react-native-community/slider';
-import { useEffect, useState } from 'react';
-import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface SimpleInterviewModalProps {
   patientId: number;
@@ -31,11 +31,15 @@ export default function SimpleInterviewModal({
   const [moodRating, setMoodRating] = useState(4); // Default to middle (4)
   const [energyRating, setEnergyRating] = useState(4); // Default to middle (4)
   const [painRating, setPainRating] = useState(4); // Default to middle (4)
+
   const [isSaving, setIsSaving] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const isBusy = isSaving || isClosing;
 
   // mode + timer state
   const [mode, setMode] = useState<Mode>('rating');
   const [remainingSeconds, setRemainingSeconds] = useState(180); // 3 minutes
+  const timerRef = useRef<number | null>(null);
 
   // Reset state whenever modal opens
   useEffect(() => {
@@ -46,18 +50,29 @@ export default function SimpleInterviewModal({
       setEnergyRating(4);
       setPainRating(4);
       setIsSaving(false);
+      setIsClosing(false);
+    } else {
+      // ensure timer is cleared on close
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }
   }, [isVisible]);
 
   // Timer effect for "timer" mode
   useEffect(() => {
     if (!isVisible || mode !== 'timer') return;
+    if (timerRef.current) clearInterval(timerRef.current);
 
-    const interval = setInterval(() => {
+    timerRef.current = setInterval(() => {
       setRemainingSeconds(prev => {
         if (prev <= 1) {
-          clearInterval(interval);
-          // ⏱️ Auto-save at zero
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          // ⏱️ Auto-save at zero (guarded by isSaving)
           handleConfirmSave();
           return 0;
         }
@@ -65,10 +80,16 @@ export default function SimpleInterviewModal({
       });
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [isVisible, mode]);
 
-  const handleGoToTimer = () => {
+  const handleGoToTimer = useCallback(() => {
+    if (isBusy) return;
     if (!validateRatings(moodRating, energyRating, painRating)) {
       showCrossPlatformAlert({
         title: 'Invalid Ratings',
@@ -80,15 +101,12 @@ export default function SimpleInterviewModal({
     // Switch to timer screen
     setMode('timer');
     setRemainingSeconds(180);
-  };
+  }, [isBusy, moodRating, energyRating, painRating]);
 
-  const handleConfirmSave = async () => {
-    if (isSaving) return;
-
+  const handleConfirmSave = useCallback(async () => {
+    if (isSaving || isClosing) return;
     setIsSaving(true);
     try {
-      const endTime = new Date(); // end timestamp = when user confirms save
-
       const newInterview = await databaseAPI.saveSimpleInterview({
         patient_id: patientId,
         mood_rating: moodRating,
@@ -99,8 +117,10 @@ export default function SimpleInterviewModal({
       });
 
       onSave?.(newInterview);
-      handleCloseInternal();
 
+      // Lock UI and close modal; don't reset local state here (avoids flicker)
+      setIsClosing(true);
+      await Promise.resolve(onClose());
       showCrossPlatformAlert({
         title: 'Interview Saved! 🎉',
         message:
@@ -111,28 +131,30 @@ export default function SimpleInterviewModal({
       });
     } catch (error) {
       console.error('Error saving interview:', error);
+      setIsSaving(false); // allow retry
       showCrossPlatformAlert({
         title: 'Error',
         message: 'Failed to save your ratings. Please try again.'
       });
+    } 
+  }, [isSaving, isClosing, patientId, moodRating, energyRating, painRating, startTime, onSave, onClose]);
+
+  const handleCancelInterview = useCallback(async () => {
+    if (isBusy) return;
+    setIsClosing(true);
+    try {
+      // just close; reset happens automatically next open
+      await Promise.resolve(onClose());
     } finally {
-      setIsSaving(false);
+      // if parent for some reason keeps it open, re-enable after a short grace
+      setTimeout(() => setIsClosing(false), 1000);
     }
-  };
+  }, [isBusy, onClose]);
 
-  const handleCancelInterview = () => {
-    // Optional: ask "Are you sure?" here; for now, just close & reset
-    handleCloseInternal();
-  };
-
-  const handleCloseInternal = () => {
-    setMoodRating(4);
-    setEnergyRating(4);
-    setPainRating(4);
-    setMode('rating');
-    setRemainingSeconds(180);
-    onClose();
-  };
+  const handleRequestClose = useCallback(() => {
+    // Android back button -> treat as cancel
+    handleCancelInterview();
+  }, [handleCancelInterview]);
 
   const renderRatingSlider = (
     title: string,
@@ -190,15 +212,11 @@ export default function SimpleInterviewModal({
   );
 
   const renderTimerContent = () => {
-    const minutes = Math.floor(remainingSeconds / 60)
-      .toString()
-      .padStart(2, '0');
-    const seconds = (remainingSeconds % 60)
-      .toString()
-      .padStart(2, '0');
+    const minutes = Math.floor(remainingSeconds / 60).toString().padStart(2, '0');
+    const seconds = (remainingSeconds % 60).toString().padStart(2, '0');
 
     return (
-      <View className="flex-1 px-6 py-8">
+      <View className="flex-1 px-6 py-8" pointerEvents={isBusy ? 'none' : 'auto'}>
         <View className="mb-6 items-center">
           <ThemedText className="text-lg text-gray-700 dark:text-gray-300 text-center mb-2">
             Interview in progress
@@ -208,9 +226,7 @@ export default function SimpleInterviewModal({
           </ThemedText>
 
           <View className="mt-4 mb-6 items-center">
-            <ThemedText className="text-sm text-gray-500 mb-1">
-              Time remaining (target):
-            </ThemedText>
+            <ThemedText className="text-sm text-gray-500 mb-1">Time remaining (target):</ThemedText>
             <ThemedText className="text-5xl font-mono font-bold text-blue-600">
               {minutes}:{seconds}
             </ThemedText>
@@ -243,23 +259,23 @@ export default function SimpleInterviewModal({
         <View className="mt-auto">
           <TouchableOpacity
             onPress={handleConfirmSave}
-            disabled={isSaving}
-            className={`p-4 rounded-xl mb-3 ${
-              isSaving ? 'bg-gray-400' : 'bg-blue-500 active:bg-blue-600'
-            }`}
+            disabled={isBusy}
+            activeOpacity={isBusy ? 1 : 0.7}
+            className={`p-4 rounded-xl mb-3 ${isBusy ? 'bg-gray-400' : 'bg-blue-500 active:bg-blue-600'}`}
           >
             <ThemedText className="text-white font-semibold text-center text-lg">
-              {isSaving ? 'Saving...' : 'Save Interview Now'}
+              {isSaving ? 'Saving…' : 'Save Interview Now'}
             </ThemedText>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleCancelInterview}
-            disabled={isSaving}
+            disabled={isBusy}
+            activeOpacity={isBusy ? 1 : 0.7}
             className="p-4 rounded-xl border border-red-400"
           >
-            <ThemedText className="text-red-500 font-semibold text-center text-lg">
-              Cancel Interview
+            <ThemedText className={`font-semibold text-center text-lg ${isBusy ? 'text-gray-400' : 'text-red-500'}`}>
+              {isClosing ? 'Closing…' : 'Cancel Interview'}
             </ThemedText>
           </TouchableOpacity>
         </View>
@@ -272,6 +288,7 @@ export default function SimpleInterviewModal({
       visible={isVisible}
       animationType="slide"
       presentationStyle="pageSheet"
+      onRequestClose={handleRequestClose}
     >
       <ThemedView className="flex-1">
         {/* Header */}
@@ -282,70 +299,61 @@ export default function SimpleInterviewModal({
               {mode === 'rating' ? 'Daily Check-in' : 'Interview Timer'}
             </ThemedText>
           </View>
-          <TouchableOpacity onPress={handleCancelInterview} className="p-2">
-            <IconSymbol name="xmark" size={20} color="#6B7280" />
+          <TouchableOpacity onPress={handleCancelInterview} disabled={isBusy} activeOpacity={isBusy ? 1 : 0.6} className="p-2">
+            <IconSymbol name="xmark" size={20} color={isBusy ? '#D1D5DB' : '#6B7280'} />
           </TouchableOpacity>
         </View>
 
         {/* Content */}
-        {mode === 'rating' ? (
-          <View className="flex-1 px-6 py-8">
-            <View className="mb-6">
-              <ThemedText className="text-lg text-gray-700 dark:text-gray-300 text-center mb-2">
-                How are you feeling today?
-              </ThemedText>
-              <ThemedText className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                Rate your current mood, energy, and pain on a scale of 1–7
-              </ThemedText>
+        <View className="flex-1">
+          {mode === 'rating' ? (
+            <View className="flex-1 px-6 py-8" pointerEvents={isBusy ? 'none' : 'auto'}>
+              <View className="mb-6">
+                <ThemedText className="text-lg text-gray-700 dark:text-gray-300 text-center mb-2">
+                  How are you feeling today?
+                </ThemedText>
+                <ThemedText className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                  Rate your current mood, energy, and pain on a scale of 1–7
+                </ThemedText>
+              </View>
+
+              {renderRatingSlider('Mood', getRatingEmoji(moodRating), moodRating, setMoodRating, '#3B82F6')}
+              {renderRatingSlider('Energy', getEnergyEmoji(energyRating), energyRating, setEnergyRating, '#F59E0B')}
+              {renderRatingSlider('Pain', getPainEmoji(painRating), painRating, setPainRating, '#E02402')}
+
+              <TouchableOpacity
+                onPress={handleGoToTimer}
+                disabled={isBusy}
+                activeOpacity={isBusy ? 1 : 0.7}
+                className={`p-4 rounded-xl ${isBusy ? 'bg-gray-400' : 'bg-blue-500 active:bg-blue-600'}`}
+              >
+                <ThemedText className="text-white font-semibold text-center text-lg">
+                  {isBusy ? 'Please wait…' : 'Continue to Timer'}
+                </ThemedText>
+              </TouchableOpacity>
+
+              <View className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <ThemedText className="text-sm text-blue-700 dark:text-blue-300 text-center">
+                  💡 After this step, you’ll see a short timer to align with neural recording before saving the interview.
+                </ThemedText>
+              </View>
             </View>
+          ) : (
+            renderTimerContent()
+          )}
 
-            {/* Mood Rating */}
-            {renderRatingSlider(
-              'Mood',
-              getRatingEmoji(moodRating),
-              moodRating,
-              setMoodRating,
-              '#3B82F6'
-            )}
-
-            {/* Energy Rating */}
-            {renderRatingSlider(
-              'Energy',
-              getEnergyEmoji(energyRating),
-              energyRating,
-              setEnergyRating,
-              '#F59E0B'
-            )}
-
-            {/* Pain Rating */}
-            {renderRatingSlider(
-              'Pain',
-              getPainEmoji(painRating),
-              painRating,
-              setPainRating,
-              '#E02402'
-            )}
-
-            {/* Continue to Timer Button */}
-            <TouchableOpacity
-              onPress={handleGoToTimer}
-              className="p-4 rounded-xl bg-blue-500 active:bg-blue-600"
-            >
-              <ThemedText className="text-white font-semibold text-center text-lg">
-                Continue to Timer
-              </ThemedText>
-            </TouchableOpacity>
-
-            {/* Quick Info */}
-            <View className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <ThemedText className="text-sm text-blue-700 dark:text-blue-300 text-center">
-                💡 After this step, you’ll see a short timer to align with neural recording before saving the interview.
-              </ThemedText>
+          {/* Busy overlay (blocks taps + shows spinner) */}
+          {isBusy && (
+            <View style={StyleSheet.absoluteFillObject} className="items-center justify-center bg-black/20">
+              <View className="px-5 py-4 rounded-xl bg-white dark:bg-gray-900">
+                <ActivityIndicator size="small" />
+                <ThemedText className="mt-2 font-semibold text-center">
+                  {isSaving ? 'Saving…' : 'Closing…'}
+                </ThemedText>
+              </View>
             </View>
-          </View>
-        ) : (
-          renderTimerContent()
-        )}
+          )}
+        </View>
       </ThemedView>
     </Modal>
   );
