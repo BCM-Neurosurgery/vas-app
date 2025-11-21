@@ -3,14 +3,29 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { usePatient } from '@/contexts/PatientContext';
-import { ScrollView, TouchableOpacity, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, ScrollView, TouchableOpacity, View } from 'react-native';
   
 interface QuickStartProps {
   onStartInterview: () => void;
 }
 
+
 export default function QuickStart({ onStartInterview }: QuickStartProps) {
   const { selectedPatient } = usePatient();
+  const [isStarting, setIsStarting] = useState(false)
+
+  const handleStart = useCallback(async() => {
+    if (isStarting) return;
+    try {
+      setIsStarting(true);
+      await Promise.resolve(onStartInterview());
+    } finally {
+      setIsStarting(false);
+    }
+  }, [isStarting, onStartInterview]);
+
+  const disabled = !selectedPatient || isStarting;
 
   return (
     <ThemedView className="flex-1 p-4">
@@ -48,18 +63,33 @@ export default function QuickStart({ onStartInterview }: QuickStartProps) {
         {/* Main Action Button */}
         <View className="mb-6">
           <TouchableOpacity
-            onPress={onStartInterview}
-            disabled={!selectedPatient}
+            onPress={handleStart}
+            disabled={disabled}
+            activeOpacity={disabled ? 1 : 0.7}
+            accessibilityState={{ disabled }}
             className={`flex-row items-center justify-center p-10 rounded-xl ${
               !selectedPatient
                 ? 'bg-gray-300 dark:bg-gray-700'
+                : isStarting
+                ? 'bg-amber-300 dark:bg-amber-600'
                 : 'bg-amber-400 dark:bg-amber-700'
-            }`}
+            } ${disabled ? 'opacity-60' : ''}`}
           >
-            <IconSymbol name="heart.fill" size={24} color="white" />
-            <ThemedText className="text-white font-bold text-xl ml-3">
-              Start Daily Check-in
-            </ThemedText>
+            {isStarting ? (
+              <>
+                <ActivityIndicator size="small" />
+                <ThemedText className="text-white font-bold text-xl ml-3">
+                  Starting…
+                </ThemedText>
+              </>
+            ) : (
+              <>
+                <IconSymbol name="heart.fill" size={24} color="white" />
+                <ThemedText className="text-white font-bold text-xl ml-3">
+                  Start Daily Check-in
+                </ThemedText>
+              </>
+            )}
           </TouchableOpacity>
         </View>
 

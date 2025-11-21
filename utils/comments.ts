@@ -15,7 +15,7 @@ export const commentAPI = {
 
         return `mood-checkin_${emuId}_${timeString}`;
     },
-    async startComment(taskName: string): Promise<string> {
+    async startComment(taskName: string, opts?: { signal?: AbortSignal }): Promise<string> {
         try {
             const response = await fetch(`${COMMENT_SERVER_URL}/send_comment`, {
                 method: 'POST',
@@ -23,6 +23,7 @@ export const commentAPI = {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({event: 'start', task: taskName}),
+                signal: opts?.signal,
               });
             if (!response.ok) {
                 return `unable to send start comment: ${JSON.stringify(response.body)}`;
@@ -32,7 +33,7 @@ export const commentAPI = {
             return `unable to send start comment: ${error}` 
         }
     },
-    async stopComment(taskName: string): Promise<string> {
+    async stopComment(taskName: string, opts?: { signal?: AbortSignal }): Promise<string> {
         try {
             const response = await fetch(`${COMMENT_SERVER_URL}/send_comment`, {
                 method: 'POST',
@@ -40,6 +41,7 @@ export const commentAPI = {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({event: 'stop', task: taskName}),
+                signal: opts?.signal,
               });
             if (!response.ok) {
                 return `unable to send stop comment: ${JSON.stringify(response.body)}`;
