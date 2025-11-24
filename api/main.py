@@ -50,7 +50,14 @@ def health_check():
     return {"status": "healthy", "message": "FastAPI is running"}
 
 @app.post("/dump-db")
-def dump_db():
+def dump_db(query_data: dict):
+    if "query_start" not in query_data or "query_end" not in query_data:
+        raise HTTPException(status_code=422, detail="Request body does not contain required query params")
+    
+    # parse query data
+    start_time = datetime.fromisoformat(query_data["query_start"])
+    end_time = datetime.fromisoformat(query_data["query_end"])
+
     log_path = os.getenv("LOG_PATH")
     if log_path is None:
         raise HTTPException(status_code=500, detail="LOG_PATH is not set")
@@ -60,19 +67,24 @@ def dump_db():
         results = session.exec(statement).all()
         # now get all interviews for each patient and output to csv 
         for patient in results:
-            # build a directory per patient
-            # make sure emu_id is a string & safe for paths
-            patient_dir = os.path.join(log_path, str(patient.emu_id))
-            os.makedirs(patient_dir, exist_ok=True)
-
-            # get that patient's interviews
+             # get that patient's interviews
             interviews = session.exec(
-                select(SimpleInterview).where(SimpleInterview.patient_id == patient.id)
+                select(SimpleInterview).where(
+                    SimpleInterview.timestamp_start >= start_time,
+                    SimpleInterview.timestamp_start <= end_time
+                    )
             ).all()
 
             if not interviews:
                 # nothing to write for this patient, skip
                 continue
+
+            # build a directory per patient
+            # make sure emu_id is a string & safe for paths
+            patient_dir = os.path.join(log_path, str(patient.emu_id))
+            os.makedirs(patient_dir, exist_ok=True)
+
+    
 
             interview_df = pd.DataFrame(
                 [interview.model_dump() for interview in interviews]
