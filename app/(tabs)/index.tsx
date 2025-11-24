@@ -107,6 +107,7 @@ export default function HomeScreen() {
           patientId={selectedPatient.id}
           isVisible={isSimpleInterviewVisible}
           startTime={interviewStart}
+          taskName={currentTaskName}
           onClose={handleCloseSimpleInterview}
           onSave={handleInterviewSaved}
         />

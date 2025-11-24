@@ -17,6 +17,7 @@ class SimpleInterview(SQLModel, table=True):
     mood_rating: int = Field()  # 1-7 scale
     energy_rating: int = Field()  # 1-7 scale
     pain_rating: int = Field()  # 1-7 scale
+    task_name: str = Field()
     timestamp_start: datetime
     timestamp_save: datetime = Field(default_factory=datetime.now)
     status: str = Field(default="completed")  # completed, draft
