@@ -82,9 +82,7 @@ def dump_db(query_data: dict):
             # build a directory per patient
             # make sure emu_id is a string & safe for paths
             patient_dir = os.path.join(log_path, str(patient.emu_id))
-            os.makedirs(patient_dir, exist_ok=True)
-
-    
+            os.makedirs(patient_dir, exist_ok=True)    
 
             interview_df = pd.DataFrame(
                 [interview.model_dump() for interview in interviews]

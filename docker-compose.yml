@@ -11,8 +11,6 @@ services:
       MYSQL_DATABASE: checkin_db
       MYSQL_USER: db_user
       MYSQL_PASSWORD: db_password
-    ports:
-      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql/init:/docker-entrypoint-initdb.d
