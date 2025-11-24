@@ -90,7 +90,7 @@ def dump_db(query_data: dict):
                 [interview.model_dump() for interview in interviews]
             )
 
-            csv_path = os.path.join(patient_dir, "vas_interview.csv")
+            csv_path = os.path.join(patient_dir, f"vas_interview_{start_time}.csv")
             interview_df.to_csv(csv_path, index=False)
             
 
