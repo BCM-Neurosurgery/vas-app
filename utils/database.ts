@@ -15,6 +15,7 @@ export interface SimpleInterview {
   mood_rating: number;  // 1-7 scale
   energy_rating: number;  // 1-7 scale
   pain_rating: number;
+  task_name: string;
   timestamp_start: Date;
   timestamp_save: Date;
   status: 'completed' | 'draft';
@@ -151,6 +152,7 @@ export const databaseAPI = {
         mood_rating: interview.mood_rating,
         energy_rating: interview.energy_rating,
         pain_rating: interview.pain_rating,
+        task_name: interview.task_name,
         timestamp_start: new Date(interview.timestamp_start),
         timestamp_save: new Date(interview.timestamp_save),
         status: interview.status
@@ -170,6 +172,7 @@ export const databaseAPI = {
           mood_rating: 5,
           energy_rating: 6,
           pain_rating: 4,
+          task_name: '',
           timestamp_start: twoHoursAgo,
           timestamp_save: twoHoursAgo,
           status: 'completed'
@@ -180,6 +183,7 @@ export const databaseAPI = {
           mood_rating: 3,
           energy_rating: 4,
           pain_rating: 5,
+          task_name: '',
           timestamp_start: twoHoursAgo,
           timestamp_save: yesterday,
           status: 'completed'
@@ -190,6 +194,7 @@ export const databaseAPI = {
           mood_rating: 6,
           energy_rating: 7,
           pain_rating: 3,
+          task_name: '',
           timestamp_start: threeDaysAgo,
           timestamp_save: threeDaysAgo,
           status: 'completed'
@@ -204,6 +209,7 @@ export const databaseAPI = {
     mood_rating: number;
     energy_rating: number;
     pain_rating: number;
+    task_name: string;
     timestamp_start: Date;
     status?: 'completed' | 'draft';
   }): Promise<SimpleInterview> {
@@ -231,6 +237,7 @@ export const databaseAPI = {
         mood_rating: newInterview.mood_rating,
         energy_rating: newInterview.energy_rating,
         pain_rating: newInterview.pain_rating,
+        task_name: newInterview.task_name,
         timestamp_start: new Date(newInterview.timestamp_start),
         timestamp_save: new Date(newInterview.timestamp_save),
         status: newInterview.status
@@ -244,6 +251,7 @@ export const databaseAPI = {
         mood_rating: interviewData.mood_rating,
         energy_rating: interviewData.energy_rating,
         pain_rating: interviewData.pain_rating,
+        task_name: interviewData.task_name,
         timestamp_start: new Date(),
         timestamp_save: new Date(),
         status: interviewData.status || 'completed'

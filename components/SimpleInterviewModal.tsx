@@ -15,6 +15,7 @@ interface SimpleInterviewModalProps {
   patientId: number;
   startTime: Date;
   isVisible: boolean;
+  taskName: string;
   onClose: () => void;
   onSave?: (interview: SimpleInterview) => void;
 }
@@ -25,6 +26,7 @@ export default function SimpleInterviewModal({
   patientId, 
   startTime,
   isVisible, 
+  taskName,
   onClose, 
   onSave 
 }: SimpleInterviewModalProps) {
@@ -112,6 +114,7 @@ export default function SimpleInterviewModal({
         mood_rating: moodRating,
         energy_rating: energyRating,
         pain_rating: painRating,
+        task_name: taskName,
         timestamp_start: startTime,
         status: 'completed'
       });
@@ -137,7 +140,7 @@ export default function SimpleInterviewModal({
         message: 'Failed to save your ratings. Please try again.'
       });
     } 
-  }, [isSaving, isClosing, patientId, moodRating, energyRating, painRating, startTime, onSave, onClose]);
+  }, [isSaving, isClosing, patientId, taskName, moodRating, energyRating, painRating, startTime, onSave, onClose]);
 
   const handleCancelInterview = useCallback(async () => {
     if (isBusy) return;
