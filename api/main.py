@@ -89,11 +89,11 @@ def dump_db(query_data: dict):
                 [interview.model_dump() for interview in interviews]
             )
 
-            csv_path = os.path.join(patient_dir, f"vas_interview_{query_data["query_start"]}.csv")
+            csv_path = os.path.join(patient_dir, f"vas_interview_{query_data['query_start']}.csv")
             interview_df.to_csv(csv_path, index=False)
             created_filepaths.append(csv_path)
 
-    return {"filepaths": "SUCCESSFULLY DUMPED DB"}
+    return {"filepaths": created_filepaths}
 
 @app.get("/patients")
 def get_patients() -> list[Patient]:
