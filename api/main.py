@@ -63,6 +63,7 @@ def dump_db(query_data: dict):
         raise HTTPException(status_code=500, detail="LOG_PATH is not set")
     # create dirs for all our patients if they don't exist
     statement = select(Patient)
+    created_filepaths = []
     with Session(DB_ENGINE) as session:
         results = session.exec(statement).all()
         # now get all interviews for each patient and output to csv 
@@ -90,9 +91,9 @@ def dump_db(query_data: dict):
 
             csv_path = os.path.join(patient_dir, f"vas_interview_{query_data["query_start"]}.csv")
             interview_df.to_csv(csv_path, index=False)
-            
+            created_filepaths.append(csv_path)
 
-    return {"message": "SUCCESSFULLY DUMPED DB"}
+    return {"filepaths": "SUCCESSFULLY DUMPED DB"}
 
 @app.get("/patients")
 def get_patients() -> list[Patient]:
