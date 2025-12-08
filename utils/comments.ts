@@ -1,4 +1,5 @@
 export const COMMENT_SERVER_URL = process.env.EXPO_PUBLIC_COMMENT_SERVER_URL;
+export const DEVICE_SECRET = process.env.EXPO_PUBLIC_DEVICE_SECRET;
 
 export const commentAPI = {
     makeTaskName(emuId: string): string {
@@ -21,16 +22,17 @@ export const commentAPI = {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
+                  'X-Device-Key': `${DEVICE_SECRET}`,
                 },
                 body: JSON.stringify({event: 'start', task: taskName}),
                 signal: opts?.signal,
               });
             if (!response.ok) {
-                return `unable to send start comment: ${JSON.stringify(response.body)}`;
+                return `unable to send start comment - please retry or SEND MANUALLY and hit continue: ${JSON.stringify(response.body)}`;
               } 
             return 'successfully sent start comment'
         } catch (error) {
-            return `unable to send start comment: ${error}` 
+            return `unable to send start comment - please retry or SEND MANUALLY and hit continue: ${error}` 
         }
     },
     async stopComment(taskName: string, opts?: { signal?: AbortSignal }): Promise<string> {
@@ -39,16 +41,17 @@ export const commentAPI = {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
+                  'X-Device-Key': `${DEVICE_SECRET}`,
                 },
                 body: JSON.stringify({event: 'stop', task: taskName}),
                 signal: opts?.signal,
               });
             if (!response.ok) {
-                return `unable to send stop comment: ${JSON.stringify(response.body)}`;
+                return `unable to send stop comment - please retry or SEND MANUALLY and hit continue: ${JSON.stringify(response.body)}`;
               } 
             return 'successfully sent stop comment'
         } catch (error) {
-            return `unable to send stop comment: ${error}` 
+            return `unable to send stop comment - please retry or SEND MANUALLY and hit continue: ${error}` 
         }
     },
     async annotationComment(taskName: string, annotation: string): Promise<string> {
@@ -57,15 +60,16 @@ export const commentAPI = {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
+                  'X-Device-Key': `${DEVICE_SECRET}`,
                 },
                 body: JSON.stringify({event: 'annotate', task: taskName, additional_text: annotation}),
               });
             if (!response.ok) {
-                return `unable to send annotation comment: ${JSON.stringify(response.body)}`;
+                return `unable to send annotation comment - please retry or SEND MANUALLY and hit continue: ${JSON.stringify(response.body)}`;
               } 
             return 'successfully sent annotation comment'
         } catch (error) {
-            return `unable to send annotation comment: ${error}` 
+            return `unable to send annotation comment - please retry or SEND MANUALLY and hit continue: ${error}` 
         }
     }
 }

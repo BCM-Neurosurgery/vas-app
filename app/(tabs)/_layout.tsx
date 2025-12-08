@@ -5,6 +5,7 @@ import SettingsPasswordModal from '@/components/SettingsPasswordModal';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
+import { InterviewFlowProvider, useInterviewFlow } from '@/contexts/InterviewFlowContext';
 import { usePatient } from '@/contexts/PatientContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { registerForPushNotificationsAsync } from '@/notifications/registerPush';
@@ -12,13 +13,15 @@ import { Tabs } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, Text, TouchableOpacity } from 'react-native';
 
+
 // NOTE: not a real secret, but fine for a “patient lock”
 const ADMIN_PASSWORD = process.env.EXPO_PUBLIC_SETTINGS_PASSWORD;
 
 // Move SettingsButton outside to avoid re-creation issues
-const SettingsButton = ({ onPress, color }: { onPress: () => void; color: string }) => (
+const SettingsButton = ({ onPress, color, disabled = false, }: { onPress: () => void; color: string; disabled?: boolean }) => (
   <TouchableOpacity
-    onPress={onPress}
+    onPress={disabled ? undefined : onPress}
+    disabled={disabled}
     className="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors settings-button"
     style={{ 
       marginRight: 15,
@@ -26,6 +29,7 @@ const SettingsButton = ({ onPress, color }: { onPress: () => void; color: string
       borderRadius: Platform.OS === 'web' ? 8 : 0,
       // Debug styling to ensure visibility
       backgroundColor: Platform.OS === 'web' ? 'rgba(0, 122, 255, 0.1)' : 'transparent',
+      opacity: disabled ? 0.4 : 1,
     }}
     data-testid="settings-button"
   >
@@ -37,12 +41,13 @@ const SettingsButton = ({ onPress, color }: { onPress: () => void; color: string
   </TouchableOpacity>
 );
 
-export default function TabLayoutContent() {
+function TabLayoutContentInner() {
   const colorScheme = useColorScheme();
   const [showSettings, setShowSettings] = useState(false);
   const [pushToken, setPushToken] = useState('');
   const { selectedPatient, setSelectedPatient } = usePatient();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const { isStarting } = useInterviewFlow();
 
   const tintColor = Colors[colorScheme ?? 'light'].tint;
 
@@ -63,6 +68,7 @@ export default function TabLayoutContent() {
 
   const handleSettingsPress = () => {
     // if no password configured, just open settings directly
+    if (isStarting) return;
     if (!ADMIN_PASSWORD) {
       setShowSettings(true);
       return;
@@ -83,7 +89,7 @@ export default function TabLayoutContent() {
         screenOptions={{
           tabBarActiveTintColor: tintColor,
           headerShown: true,
-          tabBarButton: HapticTab,
+          tabBarButton: (props) => (<HapticTab {...props} disabled={isStarting} />),
           tabBarBackground: TabBarBackground,
           tabBarStyle: Platform.select({
             ios: {
@@ -92,7 +98,7 @@ export default function TabLayoutContent() {
             },
             default: {},
           }),
-          headerRight: () => <SettingsButton onPress={handleSettingsPress} color={tintColor} />,
+          headerRight: () => <SettingsButton onPress={handleSettingsPress} color={tintColor} disabled={isStarting}/>,
         }}>
         <Tabs.Screen
           name="index"
@@ -126,5 +132,13 @@ export default function TabLayoutContent() {
         adminPassword={ADMIN_PASSWORD}
       />
     </>
+  );
+}
+
+export default function TabLayoutContent() {
+  return (
+    <InterviewFlowProvider>
+      <TabLayoutContentInner />
+    </InterviewFlowProvider>
   );
 }

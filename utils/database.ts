@@ -49,12 +49,7 @@ export const databaseAPI = {
       }));
     } catch (error) {
       console.error('Error fetching patients:', error);
-      // Return mock data for development
-      return [
-        { id: 1, emu_id: 'John Doe', latest: true },
-        { id: 2, emu_id: 'Jane Smith', latest: false },
-        { id: 3, emu_id: 'Bob Johnson', latest: false },
-      ];
+      throw error;
     }
   },
 
@@ -84,12 +79,7 @@ export const databaseAPI = {
       };
     } catch (error) {
       console.error('Error creating patient:', error);
-      // Return mock data for development
-      return {
-        id: Date.now(),
-        emu_id: emuId,
-        latest: true
-      };
+      throw error;
     }
   },
 
@@ -159,47 +149,7 @@ export const databaseAPI = {
       }));
     } catch (error) {
       console.error('Error fetching simple interviews:', error);
-      // Return mock data for development
-      const now = new Date();
-      const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-      
-      return [
-        {
-          id: 1,
-          patient_id: patient.id,
-          mood_rating: 5,
-          energy_rating: 6,
-          pain_rating: 4,
-          task_name: '',
-          timestamp_start: twoHoursAgo,
-          timestamp_save: twoHoursAgo,
-          status: 'completed'
-        },
-        {
-          id: 2,
-          patient_id: patient.id,
-          mood_rating: 3,
-          energy_rating: 4,
-          pain_rating: 5,
-          task_name: '',
-          timestamp_start: twoHoursAgo,
-          timestamp_save: yesterday,
-          status: 'completed'
-        },
-        {
-          id: 3,
-          patient_id: patient.id,
-          mood_rating: 6,
-          energy_rating: 7,
-          pain_rating: 3,
-          task_name: '',
-          timestamp_start: threeDaysAgo,
-          timestamp_save: threeDaysAgo,
-          status: 'completed'
-        }
-      ];
+      throw error;
     }
   },
 
@@ -244,18 +194,7 @@ export const databaseAPI = {
       };
     } catch (error) {
       console.error('Error saving simple interview:', error);
-      // Return mock data for development
-      return {
-        id: Date.now(),
-        patient_id: interviewData.patient_id,
-        mood_rating: interviewData.mood_rating,
-        energy_rating: interviewData.energy_rating,
-        pain_rating: interviewData.pain_rating,
-        task_name: interviewData.task_name,
-        timestamp_start: new Date(),
-        timestamp_save: new Date(),
-        status: interviewData.status || 'completed'
-      };
+      throw error;
     }
   },
 
@@ -266,7 +205,7 @@ export const databaseAPI = {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const schedule = await response.json();
-      if (Object.keys(schedule).length === 0) {
+      if (schedule === null) {
         return null;
       } else {
         return {
@@ -281,7 +220,7 @@ export const databaseAPI = {
       }
     } catch (error) {
       console.log('Error fetching schedule:', error);
-      return null
+      throw error;
     }
   },
 
