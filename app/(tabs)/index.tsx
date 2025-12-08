@@ -74,7 +74,7 @@ export default function HomeScreen() {
     if (selectedPatient == null) {
       return;
     } else {
-      const taskName = commentAPI.makeTaskName(selectedPatient.emu_id);
+      const taskName = commentAPI.makeTaskName();
       setCurrentTaskName(taskName);
       // try to send start comment
       await tryComment('start', taskName);

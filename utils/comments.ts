@@ -2,7 +2,7 @@ export const COMMENT_SERVER_URL = process.env.EXPO_PUBLIC_COMMENT_SERVER_URL;
 export const DEVICE_SECRET = process.env.EXPO_PUBLIC_DEVICE_SECRET;
 
 export const commentAPI = {
-    makeTaskName(emuId: string): string {
+    makeTaskName(): string {
         const now = new Date();
 
         const day = String(now.getDate()).padStart(2, '0');
@@ -14,7 +14,7 @@ export const commentAPI = {
 
         const timeString = `${day}${month}${year}-${hours}${minutes}`;
 
-        return `vas_${emuId}_${timeString}`;
+        return `vas_${timeString}`;
     },
     async startComment(taskName: string, opts?: { signal?: AbortSignal }): Promise<string> {
         try {
