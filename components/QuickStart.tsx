@@ -2,8 +2,9 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { useInterviewFlow } from '@/contexts/InterviewFlowContext';
 import { usePatient } from '@/contexts/PatientContext';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { ActivityIndicator, ScrollView, TouchableOpacity, View } from 'react-native';
   
 interface QuickStartProps {
@@ -13,7 +14,7 @@ interface QuickStartProps {
 
 export default function QuickStart({ onStartInterview }: QuickStartProps) {
   const { selectedPatient } = usePatient();
-  const [isStarting, setIsStarting] = useState(false)
+  const { isStarting, setIsStarting } = useInterviewFlow();
 
   const handleStart = useCallback(async() => {
     if (isStarting) return;
