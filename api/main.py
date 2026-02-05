@@ -51,13 +51,19 @@ def health_check():
 
 @app.post("/dump-db")
 def dump_db(query_data: dict):
-    if "patient" not in query_data:
-        raise HTTPException(status_code=422, detail="Request body does not contain patient identifier")
+    if "query_start" not in query_data or "query_end" not in query_data:
+        raise HTTPException(status_code=422, detail="Request body does not contain required query params")
+    
+    # parse query data
+    start_time = datetime.fromisoformat(query_data["query_start"])
+    end_time = datetime.fromisoformat(query_data["query_end"])
+
     log_path = os.getenv("LOG_PATH")
     if log_path is None:
         raise HTTPException(status_code=500, detail="LOG_PATH is not set")
+    
     # create dirs for all our patients if they don't exist
-    statement = select(Patient).where(Patient.emu_id == query_data["patient"])
+    statement = select(Patient)
     created_filepaths = []
     with Session(DB_ENGINE) as session:
         results = session.exec(statement).all()
@@ -66,7 +72,8 @@ def dump_db(query_data: dict):
             # get that patient's interviews
             interviews = session.exec(
                 select(SimpleInterview).where(
-                    SimpleInterview.patient_id == patient.id,
+                    SimpleInterview.timestamp_start >= start_time,
+                    SimpleInterview.timestamp_start <= end_time
                     )
             ).all()
 
@@ -83,7 +90,7 @@ def dump_db(query_data: dict):
                 [interview.model_dump() for interview in interviews]
             )
 
-            csv_path = os.path.join(patient_dir, f"vas_interview.csv")
+            csv_path = os.path.join(patient_dir, f"vas_interview_{query_data["query_start"]}.csv")
             interview_df.to_csv(csv_path, index=False)
             created_filepaths.append(csv_path)
 
