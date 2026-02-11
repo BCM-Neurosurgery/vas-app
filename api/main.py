@@ -1,7 +1,8 @@
+from .config import settings
 from .db.engine import DB_ENGINE
 from .db.models import *
 from .db.jobs import send_due_notifications, check_expo_receipts
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 import os
@@ -9,6 +10,7 @@ from contextlib import asynccontextmanager
 import pandas as pd
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime, timedelta
+from typing import Annotated
 import pytz
 
 scheduler = AsyncIOScheduler()
@@ -50,9 +52,16 @@ def health_check():
     return {"status": "healthy", "message": "FastAPI is running"}
 
 @app.post("/dump-db")
-def dump_db(query_data: dict):
+def dump_db(
+    query_data: dict,
+    x_dump_key: Annotated[str | None, Header()] = None,
+    ):
     if "query_start" not in query_data or "query_end" not in query_data:
         raise HTTPException(status_code=422, detail="Request body does not contain required query params")
+    
+    # also raise 403 error if dump key not provided
+    if not x_dump_key or x_dump_key != settings.dump_key:
+        raise HTTPException(status_code=403, detail="dump key was not provided or was incorrect")
     
     # parse query data
     start_time = datetime.fromisoformat(query_data["query_start"])

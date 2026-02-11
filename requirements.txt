@@ -1,4 +1,5 @@
 fastapi
+pydantic-settings
 uvicorn
 sqlmodel
 exponent_server_sdk
