@@ -40,3 +40,5 @@ logs/
 *.tsbuildinfo
 
 app-example
+
+api/config.py
