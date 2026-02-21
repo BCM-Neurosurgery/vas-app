@@ -41,4 +41,4 @@ logs/
 
 app-example
 
-api/config*.py
+api/config.py
