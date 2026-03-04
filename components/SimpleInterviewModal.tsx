@@ -1,18 +1,17 @@
 // SIMPLE INTERVIEW MODAL FOR 2-SCALE RATING SYSTEM
-// Replaces the complex 312-line InterviewDrawer with simple mood/energy sliders
-
 import { showCrossPlatformAlert } from '@/components/CrossPlatformAlert';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { databaseAPI, SimpleInterview } from '@/utils/database';
+import { databaseAPI } from '@/db/api';
+import { SimpleInterview } from '@/db/types';
 import { getEnergyEmoji, getPainEmoji, getRatingDescription, getRatingEmoji, validateRatings } from '@/utils/simpleInterview';
 import Slider from '@react-native-community/slider';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface SimpleInterviewModalProps {
-  patientId: number;
+  patient_uuid: string;
   startTime: Date;
   isVisible: boolean;
   taskName: string;
@@ -23,7 +22,7 @@ interface SimpleInterviewModalProps {
 type Mode = 'rating' | 'timer';
 
 export default function SimpleInterviewModal({ 
-  patientId, 
+  patient_uuid, 
   startTime,
   isVisible, 
   taskName,
@@ -110,7 +109,7 @@ export default function SimpleInterviewModal({
     setIsSaving(true);
     try {
       const newInterview = await databaseAPI.saveSimpleInterview({
-        patient_id: patientId,
+        patient_uuid: patient_uuid,
         mood_rating: moodRating,
         energy_rating: energyRating,
         pain_rating: painRating,
@@ -140,7 +139,7 @@ export default function SimpleInterviewModal({
         message: 'Failed to save your ratings. Please try again.'
       });
     } 
-  }, [isSaving, isClosing, patientId, taskName, moodRating, energyRating, painRating, startTime, onSave, onClose]);
+  }, [isSaving, isClosing, patient_uuid, taskName, moodRating, energyRating, painRating, startTime, onSave, onClose]);
 
   const handleCancelInterview = useCallback(async () => {
     if (isBusy) return;

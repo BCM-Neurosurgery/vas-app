@@ -1,4 +1,6 @@
-import { Patient, databaseAPI } from '@/utils/database';
+import { databaseAPI } from "@/db/api";
+import { syncEngine } from "@/db/sync/syncEngine";
+import { Patient } from "@/db/types";
 import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
 
 interface PatientContextType {
@@ -26,10 +28,9 @@ export function PatientProvider({ children }: PatientProviderProps) {
       try {
         const patientsData = await databaseAPI.getPatients();
         setPatients(patientsData);
-        // Set the first patient as selected by default
-        if (patientsData.length > 0) {
-          setSelectedPatient(patientsData[0]);
-        }
+
+        const latest = patientsData.find((p) => p.latest) ?? patientsData[0] ?? null;
+        setSelectedPatient(latest);
       } catch (error) {
         console.error('Error loading patients:', error);
       }
@@ -38,9 +39,14 @@ export function PatientProvider({ children }: PatientProviderProps) {
     loadPatients();
   }, []);
 
-  const refreshInterviews = () => {
-    setInterviewRefreshTrigger(prev => prev + 1);
-  };
+  const refreshInterviews = () => setInterviewRefreshTrigger(prev => prev + 1);
+
+  // When select patient changes, trigger sync + refresh interviews
+  useEffect(() => {
+    if (!selectedPatient) return;
+    void syncEngine.syncNow(selectedPatient.uuid);
+    refreshInterviews();
+  }, [selectedPatient?.uuid]);
 
   return (
     <PatientContext.Provider value={{

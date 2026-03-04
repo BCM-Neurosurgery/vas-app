@@ -3,8 +3,8 @@ import { showCrossPlatformAlert } from '@/components/CrossPlatformAlert';
 import QuickStart from '@/components/QuickStart';
 import SimpleInterviewModal from '@/components/SimpleInterviewModal';
 import { usePatient } from '@/contexts/PatientContext';
+import { SimpleInterview } from '@/db/types';
 import { commentAPI } from '@/utils/comments';
-import { SimpleInterview } from '@/utils/database';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -104,7 +104,7 @@ export default function HomeScreen() {
       {/* Simple Interview Modal */}
       {selectedPatient && (
         <SimpleInterviewModal
-          patientId={selectedPatient.id}
+          patient_uuid={selectedPatient.uuid}
           isVisible={isSimpleInterviewVisible}
           startTime={interviewStart}
           taskName={currentTaskName}
