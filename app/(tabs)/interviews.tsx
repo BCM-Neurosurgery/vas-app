@@ -1,8 +1,8 @@
 import { showCrossPlatformAlert } from '@/components/CrossPlatformAlert';
 import SimpleInterviewList from '@/components/SimpleInterviewList';
 import { usePatient } from '@/contexts/PatientContext';
-import { SimpleInterview } from '@/utils/database';
-import { getEnergyEmoji, getRatingEmoji, getPainEmoji } from '@/utils/simpleInterview';
+import { SimpleInterview } from '@/db/types';
+import { getEnergyEmoji, getPainEmoji, getRatingEmoji } from '@/utils/simpleInterview';
 import { Text, View } from 'react-native';
 
 export default function InterviewsScreen() {

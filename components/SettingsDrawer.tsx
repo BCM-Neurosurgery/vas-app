@@ -1,5 +1,6 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { databaseAPI, NotificationSchedule, Patient } from '@/utils/database';
+import { databaseAPI, NotificationSchedule } from '@/db/api';
+import { Patient } from '@/db/types';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useEffect, useState } from 'react';
 import {

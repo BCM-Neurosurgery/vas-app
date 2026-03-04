@@ -1,6 +1,8 @@
 from .config import settings
 from .db.engine import DB_ENGINE
 from .db.models import *
+from .db.payload import *
+from .db.operations import *
 from .db.jobs import send_due_notifications, check_expo_receipts
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -175,6 +177,7 @@ def add_interview(interview: SimpleInterview):
 @app.post("/interview-update")
 def update_interview(interview_data: SimpleInterview) -> SimpleInterview:
     with Session(DB_ENGINE) as session:
+        
         statement = select(SimpleInterview).where(SimpleInterview.id == interview_data.id)
         results = session.exec(statement)
         interview = results.one()
@@ -285,6 +288,154 @@ def create_simple_interview(interview_data: dict) -> SimpleInterview:
     except Exception as e:
         print(f"Error creating simple interview: {e}")
         raise e
+
+@app.post("/sync/push", response_model=SyncPushResponse)
+def sync_push(req: SyncPushRequest):
+    results: list[SyncOpResult] = []
+
+    with Session(DB_ENGINE) as session:
+        for op in req.ops:
+            # 1) idempotency gate
+            statement = select(SyncOperation).where(SyncOperation.op_id == op.op_id)
+            seen = session.exec(statement).first()
+            if seen:
+                results.append(SyncOpResult(op_id=op.op_id, status=seen.status, error=seen.error))
+                continue
+
+            # 2) apply + record atomically
+            try:
+                if op.op_type == "UPSERT":
+                    if op.payload is None:
+                        raise ValueError("UPSERT requires payload")
+                
+                # Apply domain mutation
+                if op.entity_type == "Patient":
+                    upsert_patient(session, op.payload)
+                elif op.entity_type == "SimpleInterview":
+                    upsert_simple_interview(session, op.payload)
+                else:
+                    raise ValueError(f"Unsupported entity_type {op.entity_type}")
+                
+                # Record op receipt
+                receipt = SyncOperation(
+                    op_id=op.op_id,
+                    device_id=req.device_id,
+                    status="ACK",
+                    error=None,
+                )
+                session.add(receipt)
+
+                # Appent to change feed (authoritative timeline)
+                change = Change(
+                    device_id=req.device_id,
+                    op_id=op.op_id,
+                    entity_type=op.entity_type,
+                    entity_uuid=op.entity_uuid,
+                    op_type=op.op_type,
+                    scope_patient_uuid=op.scope_patient_uuid,
+                    server_ts_utc=utcnow(),
+                    payload_json=op.payload if op.op_type == "UPSERT" else None
+                )
+                session.add(change)
+
+                session.commit()
+                res = SyncOpResult(op_id=op.op_id, status="ACK", error=None)
+                results.append(res)
+            except Exception as e:
+                session.rollback()
+                # Record rejection so retries get consistent answer
+                receipt = SyncOperation(
+                    op_id=op.op_id,
+                    device_id=req.device_id,
+                    status="REJECT",
+                    error=str(e)
+                )
+                session.add(receipt)
+                session.commit()
+                res = SyncOpResult(op_id=op.op_id, status="REJECT", error=str(e))
+                results.append(res)
+        
+        # return latest change cursor 
+        statement = select(Change.change_id).order_by(Change.change_id.desc())
+        latest = session.exec(statement).first()
+        latest_change_id = int(latest) if latest is not None else 0
+        
+    return SyncPushResponse(results=results, latest_change_id=latest_change_id)
+
+
+@app.get("/sync/pull", response_model=SyncPullResponse)
+def sync_pull(patient_uuid: str, since_change_id: int = 0):
+    with Session(DB_ENGINE) as session:
+        statement = (
+            select(Change)
+            .where(Change.scope_patient_uuid == patient_uuid)
+            .where(Change.change_id > since_change_id)
+            .order_by(Change.change_id.asc())
+        )
+        rows = session.exec(statement).all()
+
+        # also get latest change id in scope
+        statement = select(Change.change_id).where(Change.scope_patient_uuid == patient_uuid).order_by(Change.change_id.desc())
+        latest = session.exec(statement).first()
+        latest_change_id = int(latest) if latest is not None else since_change_id
+
+        # format for response
+        changes_payload = []
+        for r in rows:
+            payload = {
+                "change_id": r.change_id,
+                "device_id": r.device_id,
+                "op_id": r.op_id,
+                "entity_type": r.entity_type,
+                "entity_uuid": r.entity_uuid,
+                "op_type": r.op_type,
+                "scope_patient_uuid": r.scope_patient_uuid,
+                "server_ts_utc": r.server_ts_utc,
+                "payload": r.payload_json,
+            }
+            changes_payload.append(payload)
+    return SyncPullResponse(latest_change_id=latest, changes=changes_payload)
+
+@app.get("/patients/by-emu/{emu_id}")
+def get_patient_uuid_by_emu(emu_id: str):
+    with Session(DB_ENGINE) as session:
+        statement = select(Patient).where(Patient.emu_id == emu_id)
+        results = session.exec(statement)
+        patient = results.first()
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        statement = select(Change.change_id).where(Change.scope_patient_uuid == patient.uuid).order_by(Change.change_id.desc())
+        latest = session.exec(statement).first()
+        latest_change_id = int(latest) if latest is not None else 0
+    return {"patient_uuid": patient.uuid, "latest_change_id": latest_change_id}
+
+@app.get("/sync/bootstrap")
+def sync_bootstrap(emu_id: str):
+    with Session(DB_ENGINE) as session:
+        statement = select(Patient).where(Patient.emu_id == emu_id)
+        patient = session.exec(statement)
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        statement = select(Change.change_id).where(Change.scope_patient_uuid == patient.uuid).order_by(Change.change_id.desc())
+        latest = session.exec(statement)
+        latest_change_id = int(latest) if latest is not None else 0
+
+        # include small snapshot of recent interviews for fast UI
+        interviews = (
+            select(SimpleInterview)
+            .where(SimpleInterview.patient_uuid == patient.uuid)
+            .where(SimpleInterview.deleted_at_utc == None)
+            .order_by(SimpleInterview.timestamp_start.desc())
+            .limit(50)
+        ).all()
+
+        return {
+            "patient": patient.model_dump(),
+            "latest_change_id": latest_change_id,
+            "recent_interviews": [i.model_dump for i in interviews],
+        }
 
 @app.post("/push/register")
 def add_push_registration(registration: PushRegistration) -> PushRegistration:

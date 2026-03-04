@@ -1,6 +1,7 @@
 import ConnectivityWarning from '@/components/ConnectivityWarning';
 import PreflightChecks from '@/components/PreflightChecks';
 import { PatientProvider } from '@/contexts/PatientContext';
+import { databaseAPI } from '@/db/api';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
@@ -22,6 +23,12 @@ export default function RootLayout() {
   // Track app state to trigger when returning to foreground
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const lastRunRef = useRef<number>(0);
+
+  // initialize local database database
+  useEffect(() => {
+    const startDb = async () => databaseAPI.init();
+    startDb();
+  }, [])
 
   // effect adds listener to app state that is removed on component unmount
   useEffect(() => {

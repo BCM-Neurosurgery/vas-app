@@ -3,7 +3,8 @@
 
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { usePatient } from '@/contexts/PatientContext';
-import { databaseAPI, Patient, SimpleInterview } from '@/utils/database';
+import { databaseAPI } from '@/db/api';
+import { Patient, SimpleInterview } from '@/db/types';
 import { getEnergyEmoji, getPainEmoji, getRatingDescription, getRatingEmoji } from '@/utils/simpleInterview';
 import { useEffect, useState } from 'react';
 import {
@@ -233,7 +234,7 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
         <FlatList
           data={interviews}
           renderItem={renderInterviewItem}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item) => item.uuid}
           contentContainerStyle={{ padding: 20 }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptyState}
