@@ -1,6 +1,9 @@
 import uuid
+from enum import Enum
 from datetime import datetime, timezone
 from sqlmodel import Field, SQLModel, Relationship, Index
+from sqlalchemy import Column
+from sqlalchemy.types import JSON
 from typing import Literal, Any
 from .engine import DB_ENGINE
 
@@ -45,9 +48,13 @@ class SimpleInterview(SQLModel, table=True):
     patient: Patient = Relationship(back_populates="simple_interviews")
 
 # models for syncrhonization
+class OpType(str, Enum):
+    UPSERT = "UPSERT"
+    DELETE = "DELETE"
 
-OpType = Literal["UPSERT", "DELETE"]
-OpStatus = Literal["ACK", "REJECT"]
+class OpStatus(str, Enum):
+    ACK = "ACK"
+    REJECT = "REJECT"
 
 class SyncOperation(SQLModel, table=True):
     __tablename__ = "sync_operation"
@@ -55,8 +62,12 @@ class SyncOperation(SQLModel, table=True):
     device_id: str = Field(index=True)
 
     received_at_utc: datetime = Field(default_factory=utcnow, index=True)
-    status: OpStatus = Field(index=True)
+    status: OpStatus = Field(default=OpStatus.ACK, index=True)
     error: str | None = Field(default=None)
+
+class EntityType(str, Enum):
+    Patient = "Patient"
+    SimpleInterview = "SimpleInterview"
 
 class Change(SQLModel, table=True):
     __tablename__ = "change"
@@ -65,7 +76,7 @@ class Change(SQLModel, table=True):
     device_id: str = Field(index=True)
     op_id: str = Field(index=True)  # can be a FK to sync_operation.op_id if you want
 
-    entity_type: Literal["Patient", "SimpleInterview"] = Field(index=True)
+    entity_type: EntityType = Field(index=True)
     entity_uuid: str = Field(index=True)
     op_type: OpType = Field(index=True)
 
@@ -76,7 +87,7 @@ class Change(SQLModel, table=True):
         Index('idx_change_scope_cursor', 'scope_patient_uuid', 'change_id'),
     )
 
-    payload_json: dict | None = Field(default=None)  # json string
+    payload_json: dict | None = Field(default=None, sa_column=Column(JSON))  # json string
 
 
 # models for notification schedule
@@ -124,10 +135,4 @@ class NotificationLog(SQLModel, table=True):
     notification_schedule: NotificationSchedule = Relationship(back_populates="notification_logs")
 
 
-
-   
-
-
 SQLModel.metadata.create_all(DB_ENGINE)
-
-
