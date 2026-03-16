@@ -22,7 +22,8 @@ const SettingsButton = ({ onPress, color, disabled = false, }: { onPress: () => 
   <TouchableOpacity
     onPress={disabled ? undefined : onPress}
     disabled={disabled}
-    className="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors settings-button"
+    // className="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors settings-button"
+    className="mr-4 p-2 rounded-lg settings-button"
     style={{ 
       marginRight: 15,
       padding: Platform.OS === 'web' ? 8 : 4,

@@ -57,13 +57,28 @@ def upsert_simple_interview(session: Session, payload: dict) -> SimpleInterview:
         existing.pain_rating = int(payload["pain_rating"])
         existing.task_name = str(payload["task_name"])
         existing.status = str(payload.get("status", existing.status))
-        existing.timestamp_start = payload["timestamp_start"]
-        existing.timestamp_save = payload.get("timestamp_save", utcnow())
+
+        # format timestamp payloads
+        timestamp_start = payload["timestamp_start"]
+        timestamp_start = timestamp_start if not isinstance(timestamp_start, str) else datetime.fromisoformat(timestamp_start)
+
+        timestamp_save = payload.get("timestamp_save", utcnow())
+        timestamp_save = timestamp_save if not isinstance(timestamp_save, str) else datetime.fromisoformat(timestamp_save)
+
+        existing.timestamp_start = timestamp_start
+        existing.timestamp_save = timestamp_save
         existing.deleted_at_utc = payload.get("deleted_at_utc", existing.deleted_at_utc)
         existing.updated_at_utc = utcnow()
         session.add(existing)
         return existing
     else:
+        # format timestamp payloads
+        timestamp_start = payload["timestamp_start"]
+        timestamp_start = timestamp_start if not isinstance(timestamp_start, str) else datetime.fromisoformat(timestamp_start)
+
+        timestamp_save = payload.get("timestamp_save", utcnow())
+        timestamp_save = timestamp_save if not isinstance(timestamp_save, str) else datetime.fromisoformat(timestamp_save)
+
         i = SimpleInterview(
             uuid=i_uuid,
             patient_uuid=patient_uuid,
@@ -72,8 +87,8 @@ def upsert_simple_interview(session: Session, payload: dict) -> SimpleInterview:
             energy_rating=int(payload["energy_rating"]),
             pain_rating=int(payload["pain_rating"]),
             task_name=str(payload["task_name"]),
-            timestamp_start=payload["timestamp_start"],
-            timestamp_save=payload.get("timestamp_save", utcnow()),
+            timestamp_start=timestamp_start,
+            timestamp_save=timestamp_save,
             status=str(payload.get("status", "completed")),
             updated_at_utc=utcnow(),
             deleted_at_utc=None,
