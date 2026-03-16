@@ -81,7 +81,7 @@ export default function SettingsDrawer({
       await databaseAPI.setAsLatest(patient);
       
       // Update local state
-      setPatients(prev => prev.map(p => ({ ...p, latest: p.id === patient.id })));
+      setPatients(prev => prev.map(p => ({ ...p, latest: p.uuid === patient.uuid })));
       onPatientChange(patient);
       onClose();
     } catch (error) {
@@ -260,9 +260,9 @@ export default function SettingsDrawer({
               <View className="mb-5">
                 {patients.map((patient) => (
                   <TouchableOpacity
-                    key={patient.id}
+                    key={patient.uuid}
                     className={`flex-row justify-between items-center p-4 rounded-lg mb-2 ${
-                      selectedPatient?.id === patient.id 
+                      selectedPatient?.uuid === patient.uuid 
                         ? 'bg-primary-50 border border-primary-500' 
                         : 'bg-medical-gray-light'
                     }`}

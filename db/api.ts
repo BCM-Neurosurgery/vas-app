@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from "uuid";
+import * as Crypto from 'expo-crypto';
 import { interviewRepo } from "./repo/interviewRepo";
 import { outboxRepo } from "./repo/outboxRepo";
 import { patientRepo } from "./repo/patientRepo";
@@ -15,7 +15,7 @@ async function getDeviceId(): Promise<string> {
   const key = "device_id"; // TODO: sus
   const existing = await syncStateRepo.get(key);
   if (existing) return existing;
-  const fresh = uuidv4();
+  const fresh = Crypto.randomUUID();
   await syncStateRepo.set(key, fresh);
   return fresh;
 }
@@ -56,7 +56,7 @@ export const databaseAPI = {
     const now = utcIsoNow();
 
     const patient: Patient = {
-      uuid: uuidv4(),
+      uuid: Crypto.randomUUID(),
       emu_id: emuId,
       latest: true,
       updated_at_utc: now,
@@ -72,7 +72,7 @@ export const databaseAPI = {
 
       // enqueue UPSERT op
       await outboxRepo.enqueue({
-        op_id: uuidv4(),
+        op_id: Crypto.randomUUID(),
         device_id,
         entity_type: "Patient",
         entity_uuid: patient.uuid,
@@ -112,7 +112,7 @@ export const databaseAPI = {
       for (const p of all) {
         const isLatest = p.uuid == patient.uuid;
         await outboxRepo.enqueue({
-          op_id: uuidv4(),
+          op_id: Crypto.randomUUID(),
           device_id,
           entity_type: "Patient",
           entity_uuid: p.uuid,
@@ -160,7 +160,7 @@ export const databaseAPI = {
     const nowIso = utcIsoNow();
 
     const interview: SimpleInterview = {
-      uuid: uuidv4(),
+      uuid: Crypto.randomUUID(),
       patient_uuid: interviewData.patient_uuid,
       mood_rating: interviewData.mood_rating,
       energy_rating: interviewData.energy_rating,
@@ -177,7 +177,7 @@ export const databaseAPI = {
       await interviewRepo.upsert(interview);
 
       await outboxRepo.enqueue({
-        op_id: uuidv4(),
+        op_id: Crypto.randomUUID(),
         device_id,
         entity_type: "SimpleInterview",
         entity_uuid: interview.uuid,
