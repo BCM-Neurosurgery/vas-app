@@ -1,6 +1,24 @@
 import { getAllAsync, runAsync } from '../sqlite';
 import { OutboxOp } from '../types';
 
+function replaceExactString(value: any, oldValue: string, newValue: string): any {
+    if (typeof value === 'string') {
+        return value === oldValue ? newValue : value;
+    }
+
+    if (Array.isArray(value)) {
+        return value.map((item) => replaceExactString(item, oldValue, newValue));
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, item]) => [key, replaceExactString(item, oldValue, newValue)])
+        );
+    }
+
+    return value;
+}
+
 export const outboxRepo = {
     async enqueue(op: OutboxOp): Promise<void> {
         await runAsync(
@@ -44,5 +62,41 @@ export const outboxRepo = {
              WHERE op_id = ?`,
             [attempts, error, Date.now() + backoffMs, op_id]
         );
+    },
+
+    async rebindPatientUuid(old_patient_uuid: string, new_patient_uuid: string): Promise<void> {
+        const rows = await getAllAsync<any>(
+            `SELECT *
+             FROM outbox
+             WHERE acked_at_ms IS NULL
+                AND (
+                    (entity_type = 'Patient' AND entity_uuid = ?)
+                    OR scope_patient_uuid = ?
+                    OR payload_json LIKE ?
+                )`,
+            [old_patient_uuid, old_patient_uuid, `%${old_patient_uuid}%`]
+        );
+
+        for (const row of rows) {
+            const payload = row.payload_json ? JSON.parse(row.payload_json) : null;
+            const nextPayload = replaceExactString(payload, old_patient_uuid, new_patient_uuid);
+            const nextEntityUuid =
+                row.entity_type === 'Patient' && row.entity_uuid === old_patient_uuid
+                    ? new_patient_uuid
+                    : row.entity_uuid;
+            const nextScopePatientUuid =
+                row.scope_patient_uuid === old_patient_uuid
+                    ? new_patient_uuid
+                    : row.scope_patient_uuid;
+
+            await runAsync(
+                `UPDATE outbox
+                 SET entity_uuid = ?,
+                    scope_patient_uuid = ?,
+                    payload_json = ?
+                 WHERE op_id = ?`,
+                [nextEntityUuid, nextScopePatientUuid, JSON.stringify(nextPayload), row.op_id]
+            );
+        }
     },
 };

@@ -104,7 +104,16 @@ def soft_delete_entity(session: Session, entity_type: str, entity_uuid: str):
             return
         obj.deleted_at_utc = utcnow()
         obj.updated_at_utc = utcnow()
+        obj.latest = False
         session.add(obj)
+
+        interviews = session.exec(
+            select(SimpleInterview).where(SimpleInterview.patient_uuid == entity_uuid)
+        ).all()
+        for interview in interviews:
+            interview.deleted_at_utc = utcnow()
+            interview.updated_at_utc = utcnow()
+            session.add(interview)
 
     elif entity_type == "SimpleInterview":
         statement = select(SimpleInterview).where(SimpleInterview.uuid == entity_uuid)
