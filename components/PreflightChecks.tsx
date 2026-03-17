@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 interface PreflightStatus {
-  database: 'loading' | 'success' | 'error';
-  commentServer: 'loading' | 'success' | 'error' | 'warning';
+  database: 'loading' | 'success' | 'warning';
+  commentServer: 'loading' | 'success' | 'warning';
 }
 
 interface PreflightChecksProps {
@@ -15,8 +15,6 @@ export default function PreflightChecks({ onComplete }: PreflightChecksProps) {
     database: 'loading',
     commentServer: 'loading',
   });
-  const [showWarning, setShowWarning] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
 
   // Check database connectivity
   const checkDatabase = async () => {
@@ -31,7 +29,7 @@ export default function PreflightChecks({ onComplete }: PreflightChecksProps) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
-      const response = await fetch(`${API_BASE_URL}/patients`, {
+      const response = await fetch(`${API_BASE_URL}/health`, {
         method: 'GET',
         signal: controller.signal,
       });
@@ -45,7 +43,7 @@ export default function PreflightChecks({ onComplete }: PreflightChecksProps) {
       }
     } catch (error) {
       console.error('Database connection failed:', error);
-      setStatus(prev => ({ ...prev, database: 'error' }));
+      setStatus(prev => ({ ...prev, database: 'warning' }));
     }
   };
 
@@ -77,23 +75,7 @@ export default function PreflightChecks({ onComplete }: PreflightChecksProps) {
     } catch (error) {
       console.error('Comment server connection failed:', error);
       setStatus(prev => ({ ...prev, commentServer: 'warning' }));
-      setShowWarning(true);
     }
-  };
-
-  // Retry all checks
-  const retryChecks = async () => {
-    setRetryCount(prev => prev + 1);
-    setStatus({
-      database: 'loading',
-      commentServer: 'loading',
-    });
-    setShowWarning(false);
-    
-    await Promise.all([
-      checkDatabase(),
-      checkCommentServer(),
-    ]);
   };
 
   useEffect(() => {
@@ -108,19 +90,21 @@ export default function PreflightChecks({ onComplete }: PreflightChecksProps) {
   }, []);
 
   useEffect(() => {
-    // Navigate to main app when database check passes
-    if (status.database === 'success') {
+    const checksFinished =
+      status.database !== 'loading' &&
+      status.commentServer !== 'loading';
+
+    if (checksFinished) {
       setTimeout(() => {
         onComplete?.();
       }, 500);
     }
-  }, [status.database, onComplete]);
+  }, [status.database, status.commentServer, onComplete]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'loading': return '⏳';
       case 'success': return '✅';
-      case 'error': return '❌';
       case 'warning': return '⚠️';
       default: return '⏳';
     }
@@ -130,37 +114,10 @@ export default function PreflightChecks({ onComplete }: PreflightChecksProps) {
     switch (status) {
       case 'loading': return '#007AFF';
       case 'success': return '#34C759';
-      case 'error': return '#FF3B30';
       case 'warning': return '#FF9500';
       default: return '#007AFF';
     }
   };
-
-  // If database is not available, show error screen
-  if (status.database === 'error') {
-    return (
-      <View className="flex-1 justify-center items-center p-5 bg-red-50">
-        <Text className="text-3xl mb-6 text-red-600">⚠️</Text>
-        <Text className="text-2xl font-bold mb-4 text-red-800 text-center">
-          Database Connection Failed
-        </Text>
-        <Text className="text-base text-red-700 text-center mb-6 leading-6">
-          The app cannot function without access to the database. Please check your connection and try again.
-        </Text>
-        
-        <TouchableOpacity
-          onPress={retryChecks}
-          className="bg-red-600 px-6 py-3 rounded-lg mb-4"
-        >
-          <Text className="text-white font-semibold text-lg">Retry Connection</Text>
-        </TouchableOpacity>
-        
-        <Text className="text-sm text-red-600 text-center">
-          Retry attempt: {retryCount + 1}
-        </Text>
-      </View>
-    );
-  }
 
   return (
     <View className="flex-1 justify-center items-center p-5 bg-medical-gray">
@@ -184,15 +141,7 @@ export default function PreflightChecks({ onComplete }: PreflightChecksProps) {
         </View>
       </View>
 
-      {showWarning && status.commentServer === 'warning' && (
-        <View className="bg-warning-50 border border-warning-200 rounded-lg p-4 mt-5 w-full">
-          <Text className="text-warning-700 text-center font-medium">
-            ⚠️ Comment server is unavailable. Some features may be limited.
-          </Text>
-        </View>
-      )}
-
-      {status.database === 'loading' && (
+      {(status.database === 'loading' || status.commentServer === 'loading') && (
         <View className="mt-6">
           <Text className="text-medical-text-secondary text-center">
             Checking system connectivity...

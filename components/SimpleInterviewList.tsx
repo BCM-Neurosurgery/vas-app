@@ -1,12 +1,13 @@
 // SIMPLIFIED INTERVIEW LIST FOR 2-SCALE RATING SYSTEM
 // Much simpler than the complex 212-line InterviewList
 
+import { useFocusEffect } from '@react-navigation/native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { usePatient } from '@/contexts/PatientContext';
 import { databaseAPI } from '@/db/api';
 import { Patient, SimpleInterview } from '@/db/types';
 import { getEnergyEmoji, getPainEmoji, getRatingDescription, getRatingEmoji } from '@/utils/simpleInterview';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
   Text,
@@ -14,6 +15,14 @@ import {
   View,
 } from 'react-native';
 import { showCrossPlatformAlert } from './CrossPlatformAlert';
+import CrossPlatformModal from './CrossPlatformModal';
+import SettingsPasswordModal from './SettingsPasswordModal';
+
+const ADMIN_PASSWORD = process.env.EXPO_PUBLIC_SETTINGS_PASSWORD;
+
+type PendingProtectedAction =
+  | { type: 'delete'; interview: SimpleInterview }
+  | { type: 'move'; interview: SimpleInterview; targetPatient: Patient };
 
 interface SimpleInterviewListProps {
   patient: Patient;
@@ -24,6 +33,10 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
   const [interviews, setInterviews] = useState<SimpleInterview[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [movingInterview, setMovingInterview] = useState<SimpleInterview | null>(null);
+  const [isApplyingAction, setIsApplyingAction] = useState(false);
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [pendingProtectedAction, setPendingProtectedAction] = useState<PendingProtectedAction | null>(null);
 
   // Fetch interviews from database
   useEffect(() => {
@@ -47,11 +60,19 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
   }, [patient, refreshTrigger]);
 
   // Listen for refresh events from context
-  const { refreshInterviews } = usePatient();
+  const { patients, refreshInterviews } = usePatient();
   useEffect(() => {
     // Increment refresh trigger when refreshInterviews changes
     setRefreshTrigger(prev => prev + 1);
   }, [refreshInterviews]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setRefreshTrigger((prev) => prev + 1);
+    }, [])
+  );
+
+  const availableMoveTargets = patients.filter((candidate) => candidate.uuid !== patient.uuid);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -104,11 +125,72 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
     return '#171717'; // Black
   };
 
+  const executeProtectedAction = async (action: PendingProtectedAction) => {
+    try {
+      setIsApplyingAction(true);
+
+      if (action.type === 'delete') {
+        await databaseAPI.deleteSimpleInterview(action.interview);
+      } else {
+        await databaseAPI.moveSimpleInterview(action.interview, action.targetPatient.uuid);
+        showCrossPlatformAlert({
+          title: 'Check-in Moved',
+          message: `This check-in now belongs to ${action.targetPatient.emu_id}.`,
+        });
+      }
+
+      refreshInterviews();
+      setRefreshTrigger((prev) => prev + 1);
+    } catch (error) {
+      console.error(`Failed to ${action.type} interview:`, error);
+      showCrossPlatformAlert({
+        title: 'Error',
+        message: action.type === 'delete'
+          ? 'Failed to delete check-in. Please try again.'
+          : 'Failed to move check-in. Please try again.',
+      });
+    } finally {
+      setIsApplyingAction(false);
+    }
+  };
+
+  const requestProtectedAction = (action: PendingProtectedAction) => {
+    if (!ADMIN_PASSWORD) {
+      void executeProtectedAction(action);
+      return;
+    }
+
+    setPendingProtectedAction(action);
+    setShowPasswordPrompt(true);
+  };
+
+  const handleDeleteInterview = (interview: SimpleInterview) => {
+    showCrossPlatformAlert({
+      title: 'Delete Check-in',
+      message: 'This check-in will be removed locally and deleted from the server the next time sync succeeds.',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            requestProtectedAction({ type: 'delete', interview });
+          },
+        },
+      ],
+    });
+  };
+
+  const handleMoveInterview = (targetPatient: Patient) => {
+    if (!movingInterview) return;
+    const interview = movingInterview;
+    setMovingInterview(null);
+    requestProtectedAction({ type: 'move', interview, targetPatient });
+  };
+
   const renderInterviewItem = ({ item }: { item: SimpleInterview }) => (
-    <TouchableOpacity
-      className="bg-white rounded-xl p-5 mb-4 shadow-sm border border-gray-100"
-      onPress={() => handleInterviewPress(item)}
-    >
+    <View className="bg-white rounded-xl p-5 mb-4 shadow-sm border border-gray-100">
+      <TouchableOpacity onPress={() => handleInterviewPress(item)}>
       {/* Header with date and time */}
       <View className="flex-row justify-between items-center mb-4">
         <View className="flex-1">
@@ -200,7 +282,27 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
       <View className="absolute right-5 top-1/2 -mt-2">
         <IconSymbol name="chevron.right" size={16} color="#007AFF" />
       </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+
+      <View className="mt-4 flex-row justify-end gap-3 border-t border-gray-100 pt-4">
+        {availableMoveTargets.length > 0 && (
+          <TouchableOpacity
+            className="rounded-lg bg-blue-50 px-4 py-2"
+            onPress={() => setMovingInterview(item)}
+            disabled={isApplyingAction}
+          >
+            <Text className="font-semibold text-blue-700">Move</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          className="rounded-lg bg-red-50 px-4 py-2"
+          onPress={() => handleDeleteInterview(item)}
+          disabled={isApplyingAction}
+        >
+          <Text className="font-semibold text-red-700">Delete</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
   const renderEmptyState = () => (
@@ -240,6 +342,56 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
           ListEmptyComponent={renderEmptyState}
         />
       )}
+
+      <CrossPlatformModal
+        visible={movingInterview !== null}
+        onClose={() => setMovingInterview(null)}
+        title="Move Check-in"
+        presentationStyle="formSheet"
+      >
+        <View>
+          <Text className="mb-4 text-sm text-medical-text-secondary">
+            Choose the patient who should own this check-in.
+          </Text>
+          {availableMoveTargets.map((target) => (
+            <TouchableOpacity
+              key={target.uuid}
+              className="mb-3 rounded-lg bg-medical-gray-light p-4"
+              onPress={() => handleMoveInterview(target)}
+              disabled={isApplyingAction}
+            >
+              <Text className="text-base font-semibold text-medical-text-primary">{target.emu_id}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            className="mt-2 items-center rounded-lg p-3"
+            onPress={() => setMovingInterview(null)}
+            disabled={isApplyingAction}
+          >
+            <Text className="text-sm text-medical-text-secondary">Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </CrossPlatformModal>
+
+      <SettingsPasswordModal
+        visible={showPasswordPrompt}
+        onCancel={() => {
+          setShowPasswordPrompt(false);
+          setPendingProtectedAction(null);
+        }}
+        onSuccess={() => {
+          const action = pendingProtectedAction;
+          setShowPasswordPrompt(false);
+          setPendingProtectedAction(null);
+          if (action) {
+            void executeProtectedAction(action);
+          }
+        }}
+        adminPassword={ADMIN_PASSWORD}
+        title="Admin Approval"
+        message="Enter the admin password to confirm this interview change."
+        submitLabel="Confirm"
+      />
     </View>
   );
 }

@@ -13,4 +13,8 @@ export const syncStateRepo = {
       [key, value]
     );
   },
+
+  async delete(key: string): Promise<void> {
+    await runAsync(`DELETE FROM sync_state WHERE key = ?`, [key]);
+  },
 };

@@ -4,15 +4,17 @@ import { outboxRepo } from "./repo/outboxRepo";
 import { patientRepo } from "./repo/patientRepo";
 import { syncStateRepo } from "./repo/syncStateRepo";
 import { initDb, withTransaction } from "./sqlite";
+import { bootstrapByEmu } from "./sync/syncClient";
 import { syncEngine } from "./sync/syncEngine";
+import { emitSyncNotice } from "./sync/syncNotice";
 import type { Patient, SimpleInterview } from "./types";
-import { toUtcIso, utcIsoNow } from "./util/time";
+import { fromIsoToDate, toUtcIso, utcIsoNow } from "./util/time";
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_DATABASE_URL;
 
 // helper device_id is strored in sync_state (craeted once)
 async function getDeviceId(): Promise<string> {
-  const key = "device_id"; // TODO: sus
+  const key = "device_id";
   const existing = await syncStateRepo.get(key);
   if (existing) return existing;
   const fresh = Crypto.randomUUID();
@@ -26,14 +28,103 @@ function kickSync(patient_uuid?: string) {
   void syncEngine.syncNow(patient_uuid);
 }
 
-export interface NotificationSchedule {
-  id: number;
-  token_id: number;
-  freq_minutes: number;
-  duration_days: number;
-  start_time_iso: Date;
-  admin_timezone: string;
-  active: boolean;
+function lastChangeKey(patient_uuid: string) {
+  return `last_change_id:${patient_uuid}`;
+}
+
+function patientPayload(patient: Patient) {
+  return {
+    uuid: patient.uuid,
+    emu_id: patient.emu_id,
+    latest: patient.latest,
+    updated_at_utc: patient.updated_at_utc,
+    deleted_at_utc: patient.deleted_at_utc ?? null,
+  };
+}
+
+function interviewPayload(interview: SimpleInterview) {
+  return {
+    uuid: interview.uuid,
+    patient_uuid: interview.patient_uuid,
+    mood_rating: interview.mood_rating,
+    energy_rating: interview.energy_rating,
+    pain_rating: interview.pain_rating,
+    task_name: interview.task_name,
+    timestamp_start: toUtcIso(interview.timestamp_start),
+    timestamp_save: toUtcIso(interview.timestamp_save),
+    status: interview.status,
+    updated_at_utc: interview.updated_at_utc,
+    deleted_at_utc: interview.deleted_at_utc ?? null,
+  };
+}
+
+async function enqueueOutboxOp(args: {
+  device_id: string;
+  entity_type: "Patient" | "SimpleInterview";
+  entity_uuid: string;
+  op_type: "UPSERT" | "DELETE";
+  scope_patient_uuid: string;
+  payload: Record<string, unknown> | null;
+}) {
+  await outboxRepo.enqueue({
+    op_id: Crypto.randomUUID(),
+    device_id: args.device_id,
+    entity_type: args.entity_type,
+    entity_uuid: args.entity_uuid,
+    op_type: args.op_type,
+    scope_patient_uuid: args.scope_patient_uuid,
+    payload_json: JSON.stringify(args.payload),
+    created_at_ms: Date.now(),
+    attempts: 0,
+    next_attempt_at_ms: 0,
+    last_error: null,
+    acked_at_ms: null,
+  });
+}
+
+async function hydratePatientFromServer(emuId: string): Promise<Patient | null> {
+  try {
+    const snapshot = await bootstrapByEmu(emuId);
+    const patient: Patient = {
+      uuid: snapshot.patient.uuid,
+      emu_id: snapshot.patient.emu_id,
+      latest: !!snapshot.patient.latest,
+      updated_at_utc: snapshot.patient.updated_at_utc ?? utcIsoNow(),
+      deleted_at_utc: snapshot.patient.deleted_at_utc ?? null,
+    };
+
+    const interviews: SimpleInterview[] = Array.isArray(snapshot.interviews)
+      ? snapshot.interviews.map((interview: any) => ({
+          uuid: interview.uuid,
+          patient_uuid: interview.patient_uuid,
+          mood_rating: interview.mood_rating,
+          energy_rating: interview.energy_rating,
+          pain_rating: interview.pain_rating,
+          task_name: interview.task_name,
+          timestamp_start: fromIsoToDate(interview.timestamp_start),
+          timestamp_save: fromIsoToDate(interview.timestamp_save),
+          status: interview.status,
+          updated_at_utc: interview.updated_at_utc ?? utcIsoNow(),
+          deleted_at_utc: interview.deleted_at_utc ?? null,
+        }))
+      : [];
+
+    await withTransaction(async () => {
+      await patientRepo.upsert(patient);
+      for (const interview of interviews) {
+        await interviewRepo.upsert(interview);
+      }
+      await syncStateRepo.set(lastChangeKey(patient.uuid), String(snapshot.latest_change_id ?? 0));
+    });
+
+    return patient;
+  } catch (error: any) {
+    if (String(error?.message ?? "").includes("404")) {
+      return null;
+    }
+    emitSyncNotice("Server rehydration unavailable. Continuing with local-only patient creation.");
+    return null;
+  }
 }
 
 export const databaseAPI = {
@@ -52,6 +143,19 @@ export const databaseAPI = {
   },
 
   async createPatient(emuId: string): Promise<Patient> {
+    const existingLocal = await patientRepo.getByEmuId(emuId);
+    if (existingLocal && !existingLocal.deleted_at_utc) {
+      await this.setAsLatest(existingLocal);
+      return (await patientRepo.getByUuid(existingLocal.uuid)) ?? existingLocal;
+    }
+
+    const hydratedPatient = await hydratePatientFromServer(emuId);
+    if (hydratedPatient) {
+      await this.setAsLatest(hydratedPatient);
+      kickSync(hydratedPatient.uuid);
+      return (await patientRepo.getByUuid(hydratedPatient.uuid)) ?? hydratedPatient;
+    }
+
     const device_id = await getDeviceId();
     const now = utcIsoNow();
 
@@ -71,25 +175,13 @@ export const databaseAPI = {
       await patientRepo.setLatest(patient.uuid);
 
       // enqueue UPSERT op
-      await outboxRepo.enqueue({
-        op_id: Crypto.randomUUID(),
+      await enqueueOutboxOp({
         device_id,
         entity_type: "Patient",
         entity_uuid: patient.uuid,
         op_type: "UPSERT",
         scope_patient_uuid: patient.uuid,
-        payload_json: JSON.stringify({
-          uuid: patient.uuid,
-          emu_id: patient.emu_id,
-          latest: true,
-          updated_at_utc: patient.updated_at_utc,
-          deleted_at_utc: null,
-        }),
-        created_at_ms: Date.now(),
-        attempts: 0,
-        next_attempt_at_ms: 0,
-        last_error: null,
-        acked_at_ms: null,
+        payload: patientPayload(patient),
       });
     })
 
@@ -111,30 +203,90 @@ export const databaseAPI = {
       // enqueue ops for all patients
       for (const p of all) {
         const isLatest = p.uuid == patient.uuid;
-        await outboxRepo.enqueue({
-          op_id: Crypto.randomUUID(),
+        await enqueueOutboxOp({
           device_id,
           entity_type: "Patient",
           entity_uuid: p.uuid,
           op_type: "UPSERT",
-          scope_patient_uuid: p.uuid, // patient-scoped feed; each patient uses its own uuid
-          payload_json: JSON.stringify({
+          scope_patient_uuid: p.uuid,
+          payload: {
             uuid: p.uuid,
             emu_id: p.emu_id,
             latest: isLatest,
             updated_at_utc: now,
             deleted_at_utc: p.deleted_at_utc ?? null,
-          }),
-          created_at_ms: Date.now(),
-          attempts: 0,
-          next_attempt_at_ms: 0,
-          last_error: null,
-          acked_at_ms: null,
+          },
         });
       }
     });
 
     kickSync(patient.uuid);
+  },
+
+  async deletePatient(patient: Patient): Promise<Patient | null> {
+    const device_id = await getDeviceId();
+    const deletedAt = utcIsoNow();
+    const activePatients = await patientRepo.list();
+    const interviews = await interviewRepo.listByPatient(patient.uuid);
+    const remainingPatients = activePatients.filter((p) => p.uuid !== patient.uuid);
+    const replacementLatest = patient.latest ? remainingPatients[0] ?? null : null;
+
+    await withTransaction(async () => {
+      await interviewRepo.softDeleteByPatient(patient.uuid, deletedAt);
+      await patientRepo.softDelete(patient.uuid, deletedAt);
+
+      if (replacementLatest) {
+        await patientRepo.setLatest(replacementLatest.uuid);
+      }
+
+      for (const interview of interviews) {
+        await enqueueOutboxOp({
+          device_id,
+          entity_type: "SimpleInterview",
+          entity_uuid: interview.uuid,
+          op_type: "DELETE",
+          scope_patient_uuid: patient.uuid,
+          payload: {
+            uuid: interview.uuid,
+            patient_uuid: patient.uuid,
+            deleted_at_utc: deletedAt,
+          },
+        });
+      }
+
+      await enqueueOutboxOp({
+        device_id,
+        entity_type: "Patient",
+        entity_uuid: patient.uuid,
+        op_type: "DELETE",
+        scope_patient_uuid: patient.uuid,
+        payload: {
+          uuid: patient.uuid,
+          deleted_at_utc: deletedAt,
+        },
+      });
+
+      if (replacementLatest) {
+        const refreshedReplacement = await patientRepo.getByUuid(replacementLatest.uuid);
+        if (refreshedReplacement) {
+          await enqueueOutboxOp({
+            device_id,
+            entity_type: "Patient",
+            entity_uuid: refreshedReplacement.uuid,
+            op_type: "UPSERT",
+            scope_patient_uuid: refreshedReplacement.uuid,
+            payload: patientPayload(refreshedReplacement),
+          });
+        }
+      }
+    });
+
+    kickSync(patient.uuid);
+    if (replacementLatest) {
+      kickSync(replacementLatest.uuid);
+      return await patientRepo.getByUuid(replacementLatest.uuid);
+    }
+    return null;
   },
 
   // ===== SIMPLE INTERVIEW MANAGEMENT =====
@@ -176,31 +328,13 @@ export const databaseAPI = {
     await withTransaction(async () => {
       await interviewRepo.upsert(interview);
 
-      await outboxRepo.enqueue({
-        op_id: Crypto.randomUUID(),
+      await enqueueOutboxOp({
         device_id,
         entity_type: "SimpleInterview",
         entity_uuid: interview.uuid,
         op_type: "UPSERT",
         scope_patient_uuid: interview.patient_uuid,
-        payload_json: JSON.stringify({
-          uuid: interview.uuid,
-          patient_uuid: interview.patient_uuid,
-          mood_rating: interview.mood_rating,
-          energy_rating: interview.energy_rating,
-          pain_rating: interview.pain_rating,
-          task_name: interview.task_name,
-          timestamp_start: toUtcIso(interview.timestamp_start),
-          timestamp_save: toUtcIso(interview.timestamp_save),
-          status: interview.status,
-          updated_at_utc: interview.updated_at_utc,
-          deleted_at_utc: null,
-        }),
-        created_at_ms: Date.now(),
-        attempts: 0,
-        next_attempt_at_ms: 0,
-        last_error: null,
-        acked_at_ms: null,
+        payload: interviewPayload(interview),
       });
     });
 
@@ -208,78 +342,73 @@ export const databaseAPI = {
     return interview;
   },
 
-// ===== Notifications: leave server-only for now (Phase 2) =====
-  async getSchedule(): Promise<NotificationSchedule | null> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin/schedule/get`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const schedule = await response.json();
-      if (schedule === null) {
-        return null;
-      } else {
-        return {
-          id: schedule.id,
-          token_id: schedule.token_id,
-          freq_minutes: schedule.freq_minutes,
-          duration_days: schedule.duration_days,
-          start_time_iso: schedule.start_time_iso,
-          admin_timezone: schedule.admin_timezone,
-          active: schedule.active,
-        }
-      }
-    } catch (error) {
-      console.log('Error fetching schedule:', error);
-      throw error;
-    }
-  },
+  async deleteSimpleInterview(interview: SimpleInterview): Promise<void> {
+    const device_id = await getDeviceId();
+    const deletedAt = utcIsoNow();
 
-  async createSchedule(scheduleData: {
-    expo_push_token: string,
-    freq_minutes: number,
-    duration_days: number,
-    start_time_iso: Date,
-    admin_timezone: string,
-    active: boolean
-  }): Promise<NotificationSchedule | null> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin/schedule/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+    await withTransaction(async () => {
+      await interviewRepo.softDelete(interview.uuid, deletedAt);
+      await enqueueOutboxOp({
+        device_id,
+        entity_type: "SimpleInterview",
+        entity_uuid: interview.uuid,
+        op_type: "DELETE",
+        scope_patient_uuid: interview.patient_uuid,
+        payload: {
+          uuid: interview.uuid,
+          patient_uuid: interview.patient_uuid,
+          deleted_at_utc: deletedAt,
         },
-        body: JSON.stringify(scheduleData),
       });
-     
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+    });
 
-      const schedule = await response.json();
-      return schedule;
-      } catch (error) {
-      console.log('Error fetching schedule:', error);
-      return null;
-    }
+    kickSync(interview.patient_uuid);
   },
 
-  async cancelSchedule(): Promise<NotificationSchedule> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin/schedule/cancel`, {
-        method: 'POST',
-      });
-     
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const schedule = await response.json();
-      return schedule;
-      } catch (error) {
-      console.log('Error cancelling schedule:', error);
-      throw new Error('Failed to cancel schedule.');
+  async moveSimpleInterview(interview: SimpleInterview, target_patient_uuid: string): Promise<SimpleInterview> {
+    if (interview.patient_uuid === target_patient_uuid) {
+      return interview;
     }
+
+    const device_id = await getDeviceId();
+    const nowIso = utcIsoNow();
+    const source_patient_uuid = interview.patient_uuid;
+    const movedInterview: SimpleInterview = {
+      ...interview,
+      patient_uuid: target_patient_uuid,
+      updated_at_utc: nowIso,
+      deleted_at_utc: null,
+    };
+
+    await withTransaction(async () => {
+      await interviewRepo.upsert(movedInterview);
+
+      await enqueueOutboxOp({
+        device_id,
+        entity_type: "SimpleInterview",
+        entity_uuid: interview.uuid,
+        op_type: "DELETE",
+        scope_patient_uuid: source_patient_uuid,
+        payload: {
+          uuid: interview.uuid,
+          patient_uuid: source_patient_uuid,
+          moved_to_patient_uuid: target_patient_uuid,
+          updated_at_utc: nowIso,
+        },
+      });
+
+      await enqueueOutboxOp({
+        device_id,
+        entity_type: "SimpleInterview",
+        entity_uuid: movedInterview.uuid,
+        op_type: "UPSERT",
+        scope_patient_uuid: target_patient_uuid,
+        payload: interviewPayload(movedInterview),
+      });
+    });
+
+    kickSync(target_patient_uuid);
+    return movedInterview;
   },
 }
 // export const databaseAPI = {
@@ -448,77 +577,3 @@ export const databaseAPI = {
 //       throw error;
 //     }
 //   },
-
-//   async getSchedule(): Promise<NotificationSchedule | null> {
-//     try {
-//       const response = await fetch(`${API_BASE_URL}/admin/schedule/get`);
-//       if (!response.ok) {
-//         throw new Error(`HTTP error! status: ${response.status}`);
-//       }
-//       const schedule = await response.json();
-//       if (schedule === null) {
-//         return null;
-//       } else {
-//         return {
-//           id: schedule.id,
-//           token_id: schedule.token_id,
-//           freq_minutes: schedule.freq_minutes,
-//           duration_days: schedule.duration_days,
-//           start_time_iso: schedule.start_time_iso,
-//           admin_timezone: schedule.admin_timezone,
-//           active: schedule.active,
-//         }
-//       }
-//     } catch (error) {
-//       console.log('Error fetching schedule:', error);
-//       throw error;
-//     }
-//   },
-
-//   async createSchedule(scheduleData: {
-//     expo_push_token: string,
-//     freq_minutes: number,
-//     duration_days: number,
-//     start_time_iso: Date,
-//     admin_timezone: string,
-//     active: boolean
-//   }): Promise<NotificationSchedule | null> {
-//     try {
-//       const response = await fetch(`${API_BASE_URL}/admin/schedule/create`, {
-//         method: 'POST',
-//         headers: {
-//           'Content-Type': 'application/json',
-//         },
-//         body: JSON.stringify(scheduleData),
-//       });
-     
-//       if (!response.ok) {
-//         throw new Error(`HTTP error! status: ${response.status}`);
-//       }
-
-//       const schedule = await response.json();
-//       return schedule;
-//       } catch (error) {
-//       console.log('Error fetching schedule:', error);
-//       return null;
-//     }
-//   },
-
-//   async cancelSchedule(): Promise<NotificationSchedule> {
-//     try {
-//       const response = await fetch(`${API_BASE_URL}/admin/schedule/cancel`, {
-//         method: 'POST',
-//       });
-     
-//       if (!response.ok) {
-//         throw new Error(`HTTP error! status: ${response.status}`);
-//       }
-
-//       const schedule = await response.json();
-//       return schedule;
-//       } catch (error) {
-//       console.log('Error cancelling schedule:', error);
-//       throw new Error('Failed to cancel schedule.');
-//     }
-//   }
-// };

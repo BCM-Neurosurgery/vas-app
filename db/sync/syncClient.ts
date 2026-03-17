@@ -33,3 +33,11 @@ export async function bootstrapByEmu(emu_id: string) {
   if (!resp.ok) throw new Error(`sync/bootstrap failed: ${resp.status}`);
   return await resp.json();
 }
+
+export async function getPatientByEmu(emu_id: string) {
+  const url = `${API_BASE_URL}/patients/by-emu/${encodeURIComponent(emu_id)}`;
+  const resp = await fetch(url);
+  if (resp.status === 404) return null;
+  if (!resp.ok) throw new Error(`patients/by-emu failed: ${resp.status}`);
+  return await resp.json();
+}

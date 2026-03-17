@@ -36,3 +36,25 @@ export async function applyUpsert(entity_type: string, payload: any) {
 
     // ignore unknown types
 }
+
+export async function applyDelete(entity_type: string, entity_uuid: string, payload: any) {
+    const deletedAt = payload?.deleted_at_utc ?? payload?.updated_at_utc ?? utcIsoNow();
+
+    if (entity_type === "Patient") {
+        await patientRepo.softDelete(entity_uuid, deletedAt);
+        await interviewRepo.softDeleteByPatient(entity_uuid, deletedAt);
+        return;
+    }
+
+    if (entity_type === "SimpleInterview") {
+        const existing = await interviewRepo.getByUuid(entity_uuid);
+        if (!existing) return;
+
+        const sourcePatientUuid = payload?.patient_uuid ?? null;
+        if (sourcePatientUuid && existing.patient_uuid !== sourcePatientUuid) {
+            return;
+        }
+
+        await interviewRepo.softDelete(entity_uuid, deletedAt);
+    }
+}

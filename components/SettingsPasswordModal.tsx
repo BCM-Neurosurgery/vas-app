@@ -8,6 +8,9 @@ interface SettingsPasswordModalProps {
     onCancel: () => void;
     onSuccess: () => void;
     adminPassword?: string | null; // expected password from env
+    title?: string;
+    message?: string;
+    submitLabel?: string;
   }
 
 export default function SettingsPasswordModal({
@@ -15,6 +18,9 @@ export default function SettingsPasswordModal({
     onCancel,
     onSuccess,
     adminPassword,
+    title = 'Admin Settings',
+    message = 'Enter the admin password to access settings.',
+    submitLabel = 'Unlock',
 }: SettingsPasswordModalProps) {
     const [passwordInput, setPasswordInput] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -47,7 +53,7 @@ export default function SettingsPasswordModal({
         <CrossPlatformModal
             visible={visible}
             onClose={handleClose}
-            title="Admin Settings"
+            title={title}
             showCloseButton={true}
             animationType="fade"
             >
@@ -57,7 +63,7 @@ export default function SettingsPasswordModal({
                 {/* Card */}
                 <View className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-md">
                 <Text className="text-center text-gray-600 text-base mb-6">
-                    Enter the admin password to access settings.
+                    {message}
                 </Text>
 
                 <TextInput
@@ -111,7 +117,7 @@ export default function SettingsPasswordModal({
                     "
                     >
                     <Text className="text-white font-semibold text-base">
-                        Unlock
+                        {submitLabel}
                     </Text>
                     </TouchableOpacity>
                 </View>

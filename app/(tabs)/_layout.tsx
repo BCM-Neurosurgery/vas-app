@@ -1,4 +1,3 @@
-import { showCrossPlatformAlert } from '@/components/CrossPlatformAlert';
 import { HapticTab } from '@/components/HapticTab';
 import SettingsDrawer from '@/components/SettingsDrawer';
 import SettingsPasswordModal from '@/components/SettingsPasswordModal';
@@ -8,9 +7,8 @@ import { Colors } from '@/constants/Colors';
 import { InterviewFlowProvider, useInterviewFlow } from '@/contexts/InterviewFlowContext';
 import { usePatient } from '@/contexts/PatientContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { registerForPushNotificationsAsync } from '@/notifications/registerPush';
 import { Tabs } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Platform, Text, TouchableOpacity } from 'react-native';
 
 
@@ -45,27 +43,11 @@ const SettingsButton = ({ onPress, color, disabled = false, }: { onPress: () => 
 function TabLayoutContentInner() {
   const colorScheme = useColorScheme();
   const [showSettings, setShowSettings] = useState(false);
-  const [pushToken, setPushToken] = useState('');
   const { selectedPatient, setSelectedPatient } = usePatient();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const { isStarting } = useInterviewFlow();
 
   const tintColor = Colors[colorScheme ?? 'light'].tint;
-
-  // make sure token is registered, or notify if not
-  useEffect(() => {
-    registerForPushNotificationsAsync(process.env.EXPO_PUBLIC_DATABASE_URL)
-    .then(res => {
-      setPushToken(res.expo_push_token);
-      console.log('successfully registered push token');
-    })
-    .catch(err => {
-      showCrossPlatformAlert({
-        title: 'push token error notification', 
-        message: `issue registering push token: ${err}`
-      })
-    })
-  }, []);
 
   const handleSettingsPress = () => {
     // if no password configured, just open settings directly
@@ -123,7 +105,6 @@ function TabLayoutContentInner() {
         onClose={() => setShowSettings(false)}
         selectedPatient={selectedPatient}
         onPatientChange={setSelectedPatient}
-        pushToken={pushToken}
       />
 
       <SettingsPasswordModal

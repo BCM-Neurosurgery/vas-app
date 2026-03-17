@@ -3,31 +3,15 @@ from .db.engine import DB_ENGINE
 from .db.models import *
 from .db.payload import *
 from .db.operations import *
-from .db.jobs import send_due_notifications, check_expo_receipts
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 import os
-from contextlib import asynccontextmanager
 import pandas as pd
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Annotated
-import pytz
 
-scheduler = AsyncIOScheduler()
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # add job to scheduler and start it
-    scheduler.add_job(send_due_notifications, "cron", second="0")
-    scheduler.add_job(check_expo_receipts, "cron", minute="*/5")
-    scheduler.start()
-    yield
-    # shut down scheduler
-    scheduler.shutdown(wait=False)
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 # Add CORS middleware
 app.add_middleware(
@@ -74,7 +58,7 @@ def dump_db(
         raise HTTPException(status_code=500, detail="LOG_PATH is not set")
     
     # create dirs for all our patients if they don't exist
-    statement = select(Patient)
+    statement = select(Patient).where(Patient.deleted_at_utc == None)
     created_filepaths = []
     with Session(DB_ENGINE) as session:
         results = session.exec(statement).all()
@@ -85,7 +69,8 @@ def dump_db(
                 select(SimpleInterview).where(
                     SimpleInterview.timestamp_start >= start_time,
                     SimpleInterview.timestamp_start <= end_time,
-                    SimpleInterview.patient_id == patient.id,
+                    SimpleInterview.patient_uuid == patient.uuid,
+                    SimpleInterview.deleted_at_utc == None,
                     )
             ).all()
 
@@ -128,12 +113,23 @@ def sync_push(req: SyncPushRequest):
                         raise ValueError("UPSERT requires payload")
                 
                 # Apply domain mutation
-                if op.entity_type == "Patient":
-                    upsert_patient(session, op.payload)
-                elif op.entity_type == "SimpleInterview":
-                    upsert_simple_interview(session, op.payload)
+                if op.op_type == "UPSERT":
+                    if op.entity_type == "Patient":
+                        upsert_patient(session, op.payload)
+                    elif op.entity_type == "SimpleInterview":
+                        upsert_simple_interview(session, op.payload)
+                    else:
+                        raise ValueError(f"Unsupported entity_type {op.entity_type}")
+                elif op.op_type == "DELETE":
+                    move_tombstone = (
+                        op.entity_type == "SimpleInterview"
+                        and op.payload is not None
+                        and op.payload.get("moved_to_patient_uuid") is not None
+                    )
+                    if not move_tombstone:
+                        soft_delete_entity(session, op.entity_type, op.entity_uuid)
                 else:
-                    raise ValueError(f"Unsupported entity_type {op.entity_type}")
+                    raise ValueError(f"Unsupported op_type {op.op_type}")
                 
                 # Record op receipt
                 receipt = SyncOperation(
@@ -153,7 +149,7 @@ def sync_push(req: SyncPushRequest):
                     op_type=op.op_type,
                     scope_patient_uuid=op.scope_patient_uuid,
                     server_ts_utc=utcnow(),
-                    payload_json=op.payload if op.op_type == "UPSERT" else None
+                    payload_json=op.payload,
                 )
                 session.add(change)
 
@@ -232,129 +228,29 @@ def get_patient_uuid_by_emu(emu_id: str):
 @app.get("/sync/bootstrap")
 def sync_bootstrap(emu_id: str):
     with Session(DB_ENGINE) as session:
-        statement = select(Patient).where(Patient.emu_id == emu_id)
-        patient = session.exec(statement)
+        statement = (
+            select(Patient)
+            .where(Patient.emu_id == emu_id)
+            .where(Patient.deleted_at_utc == None)
+        )
+        patient = session.exec(statement).first()
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
         statement = select(Change.change_id).where(Change.scope_patient_uuid == patient.uuid).order_by(Change.change_id.desc())
-        latest = session.exec(statement)
+        latest = session.exec(statement).first()
         latest_change_id = int(latest) if latest is not None else 0
 
-        # include small snapshot of recent interviews for fast UI
-        interviews = (
+        # include the full active interview set so local DB can be fully rehydrated
+        interviews = session.exec(
             select(SimpleInterview)
             .where(SimpleInterview.patient_uuid == patient.uuid)
             .where(SimpleInterview.deleted_at_utc == None)
             .order_by(SimpleInterview.timestamp_start.desc())
-            .limit(50)
         ).all()
 
         return {
             "patient": patient.model_dump(),
             "latest_change_id": latest_change_id,
-            "recent_interviews": [i.model_dump for i in interviews],
+            "interviews": [i.model_dump() for i in interviews],
         }
-
-@app.post("/push/register")
-def add_push_registration(registration: PushRegistration) -> PushRegistration:
-    with Session(DB_ENGINE) as session:
-        session.add(registration)
-        session.commit()
-        session.refresh(registration)
-    return registration
-
-@app.get("/push/{token}")
-def get_push_registration(token: str):
-    try:
-        statement = select(PushRegistration).where(PushRegistration.expo_push_token == token)
-        with Session(DB_ENGINE) as session:
-            result = session.exec(statement).first()
-            return result
-    except Exception as e:
-        print(f"Unable to fetch token registration {token}: {e}")
-        return None
-
-@app.post("/admin/schedule/create")
-def create_schedule(schedule_data: dict) -> NotificationSchedule:
-    try:
-        # get token id from token string 
-        token_str = schedule_data["expo_push_token"]
-        statement = select(PushRegistration).where(PushRegistration.expo_push_token == token_str)
-        with Session(DB_ENGINE) as session:
-            result = session.exec(statement).first()
-            token_id = result.id
-
-        # create schedule item
-        start_time_iso = datetime.fromisoformat(schedule_data["start_time_iso"])
-        schedule = NotificationSchedule(
-            token_id=token_id,
-            freq_minutes=schedule_data["freq_minutes"],
-            duration_days=schedule_data["duration_days"],
-            start_time_iso=start_time_iso,
-            admin_timezone=schedule_data["admin_timezone"],
-            active=True,
-        )
-
-        # post to db
-        with Session(DB_ENGINE) as session:
-            session.add(schedule)
-            session.commit()
-            session.refresh(schedule)
-
-        # create notification logs as needed
-        t = start_time_iso
-        end_time_iso = start_time_iso + timedelta(days=schedule_data["duration_days"])
-        step = timedelta(minutes=schedule_data["freq_minutes"])
-        logs = []
-        while t < end_time_iso:
-            logs.append(NotificationLog(
-                token_id=token_id,
-                schedule_id=schedule.id,
-                planned_at_utc=t,
-                status="pending"
-            ))
-            t += step
-
-        # commit all notification logs
-        with Session(DB_ENGINE) as session:
-            session.add_all(logs)
-            session.commit()
-        return schedule
-    except Exception as e:
-        print(f"Error creating notification schedule: {e}")
-        raise e
-    
-
-@app.get("/admin/schedule/get")
-def get_schedule() -> NotificationSchedule | None:
-    # get current active schedule if it exists
-    statement = select(NotificationSchedule).where(NotificationSchedule.active == True)
-    with Session(DB_ENGINE) as session:
-        result = session.exec(statement).first()
-        return result
-
-@app.post("/admin/schedule/cancel")
-def cancel_schedule() -> NotificationSchedule | None:
-    # find currently active schedule
-    statement = select(NotificationSchedule).where(NotificationSchedule.active == True)
-    with Session(DB_ENGINE) as session:
-        schedule = session.exec(statement).first()
-        # if there is an active result, flip flag and commit
-        if schedule:
-            schedule.active = False
-            session.add(schedule)
-            session.commit()
-
-            # also cancel all associated pending notification logs
-            statement = select(NotificationLog).where(NotificationLog.schedule_id == schedule.id)
-            results = session.exec(statement).all()
-            if results:
-                for result in results:
-                    session.delete(result)
-                    session.commit()
-
-    return schedule
-
-
-    

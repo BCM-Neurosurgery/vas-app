@@ -1,5 +1,7 @@
 import { databaseAPI } from "@/db/api";
+import { patientRepo } from "@/db/repo/patientRepo";
 import { syncEngine } from "@/db/sync/syncEngine";
+import { subscribePatientRebind } from "@/db/sync/syncNotice";
 import { Patient } from "@/db/types";
 import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
 
@@ -46,6 +48,22 @@ export function PatientProvider({ children }: PatientProviderProps) {
     if (!selectedPatient) return;
     void syncEngine.syncNow(selectedPatient.uuid);
     refreshInterviews();
+  }, [selectedPatient?.uuid]);
+
+  useEffect(() => {
+    const unsubscribe = subscribePatientRebind((oldUuid, newUuid) => {
+      void (async () => {
+        const updatedPatients = await databaseAPI.getPatients();
+        setPatients(updatedPatients);
+
+        if (selectedPatient?.uuid === oldUuid) {
+          const reboundPatient = await patientRepo.getByUuid(newUuid);
+          setSelectedPatient(reboundPatient);
+        }
+      })();
+    });
+
+    return unsubscribe;
   }, [selectedPatient?.uuid]);
 
   return (
