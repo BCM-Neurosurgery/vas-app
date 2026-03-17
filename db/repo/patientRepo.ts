@@ -5,7 +5,7 @@ import { utcIsoNow } from '../util/time';
 export const patientRepo = {
     async list(): Promise<Patient[]> {
         const rows = await getAllAsync<any>(
-            `SELECT uuid, emu_id latest, updated_at_utc, deleted_at_utc
+            `SELECT uuid, emu_id, latest, updated_at_utc, deleted_at_utc
              FROM patients
              WHERE deleted_at_utc IS NULL
              ORDER BY latest DESC, emu_id ASC`
