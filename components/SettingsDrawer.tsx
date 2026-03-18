@@ -29,6 +29,8 @@ export default function SettingsDrawer({
   const { setPatients: setContextPatients } = usePatient();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [showNewPatientModal, setShowNewPatientModal] = useState(false);
+  const [patientPendingDelete, setPatientPendingDelete] = useState<Patient | null>(null);
+  const [patientPendingFinalDelete, setPatientPendingFinalDelete] = useState<Patient | null>(null);
   const [newPatientName, setNewPatientName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -142,43 +144,36 @@ export default function SettingsDrawer({
     }
   };
 
-  const handleDeletePatient = (patient: Patient) => {
-    showCrossPlatformAlert({
-      title: 'Delete Patient',
-      message: `Delete "${patient.emu_id}" and all of its local check-ins? This will also be pushed to the server when sync is available.`,
-      buttons: [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              const nextSelectedPatient = await databaseAPI.deletePatient(patient);
-              const updatedPatients = await databaseAPI.getPatients();
-              setPatients(updatedPatients);
-              setContextPatients(updatedPatients);
+  const confirmDeletePatient = async (patient: Patient) => {
+    try {
+      setIsLoading(true);
+      const nextSelectedPatient = await databaseAPI.deletePatient(patient);
+      const updatedPatients = await databaseAPI.getPatients();
+      setPatients(updatedPatients);
+      setContextPatients(updatedPatients);
 
-              if (selectedPatient?.uuid === patient.uuid) {
-                onPatientChange(nextSelectedPatient);
-              } else if (selectedPatient) {
-                const refreshedSelected =
-                  updatedPatients.find((candidate) => candidate.uuid === selectedPatient.uuid) ?? null;
-                onPatientChange(refreshedSelected);
-              }
-            } catch (error) {
-              console.error('Failed to delete patient:', error);
-              showCrossPlatformAlert({
-                title: 'Error',
-                message: 'Failed to delete patient. Please try again.',
-              });
-            } finally {
-              setIsLoading(false);
-            }
-          },
-        },
-      ],
-    });
+      if (selectedPatient?.uuid === patient.uuid) {
+        onPatientChange(nextSelectedPatient);
+      } else if (selectedPatient) {
+        const refreshedSelected =
+          updatedPatients.find((candidate) => candidate.uuid === selectedPatient.uuid) ?? null;
+        onPatientChange(refreshedSelected);
+      }
+    } catch (error) {
+      console.error('Failed to delete patient:', error);
+      showCrossPlatformAlert({
+        title: 'Error',
+        message: 'Failed to delete patient. Please try again.',
+      });
+    } finally {
+      setIsLoading(false);
+      setPatientPendingDelete(null);
+      setPatientPendingFinalDelete(null);
+    }
+  };
+
+  const handleDeletePatient = (patient: Patient) => {
+    setPatientPendingDelete(patient);
   };
 
   return (
@@ -294,6 +289,96 @@ export default function SettingsDrawer({
 
                 <TouchableOpacity className="flex-1 rounded-lg bg-primary-500 p-3" onPress={handleNewPatient}>
                   <Text className="text-center font-semibold text-white">Create</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </CrossPlatformModal>
+
+        <CrossPlatformModal
+          visible={patientPendingDelete !== null}
+          onClose={() => setPatientPendingDelete(null)}
+          title="Delete Patient"
+          showCloseButton={true}
+          animationType="fade"
+          presentationStyle="formSheet"
+        >
+          <View
+            style={{ width: '92%', maxWidth: 480, maxHeight: '80%', alignSelf: 'center' }}
+            className="rounded-2xl bg-white p-4"
+          >
+            <ScrollView bounces={false} contentContainerStyle={{ paddingTop: 40, paddingBottom: 12, gap: 12 }}>
+              <Text className="text-base leading-6 text-medical-text-primary">
+                Delete &quot;{patientPendingDelete?.emu_id}&quot; and all of its local check-ins? This will also be pushed to the server when sync is available.
+              </Text>
+
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  className="flex-1 rounded-lg bg-medical-gray-light p-3"
+                  onPress={() => setPatientPendingDelete(null)}
+                  disabled={isLoading}
+                >
+                  <Text className="text-center font-semibold text-medical-text-secondary">Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="flex-1 rounded-lg bg-red-600 p-3"
+                  onPress={() => {
+                    setPatientPendingFinalDelete(patientPendingDelete);
+                    setPatientPendingDelete(null);
+                  }}
+                  disabled={isLoading}
+                >
+                  <Text className="text-center font-semibold text-white">Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </CrossPlatformModal>
+
+        <CrossPlatformModal
+          visible={patientPendingFinalDelete !== null}
+          onClose={() => setPatientPendingFinalDelete(null)}
+          title="Are You Sure?"
+          showCloseButton={true}
+          animationType="fade"
+          presentationStyle="formSheet"
+        >
+          <View
+            style={{ width: '92%', maxWidth: 480, maxHeight: '80%', alignSelf: 'center' }}
+            className="rounded-2xl bg-white p-4"
+          >
+            <ScrollView bounces={false} contentContainerStyle={{ paddingTop: 40, paddingBottom: 12, gap: 12 }}>
+              <View className="rounded-xl border border-red-100 bg-red-50 p-4">
+                <Text className="text-lg font-bold text-red-800">Patient deletion is hard to reverse.</Text>
+                <Text className="mt-2 text-base leading-6 text-red-900">
+                  Please make sure this is necessary before proceeding.
+                </Text>
+              </View>
+
+              <Text className="text-sm leading-6 text-medical-text-secondary">
+                This will remove &quot;{patientPendingFinalDelete?.emu_id}&quot; from the active patient list and keep its existing check-ins deleted.
+              </Text>
+
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  className="flex-1 rounded-lg bg-medical-gray-light p-3"
+                  onPress={() => setPatientPendingFinalDelete(null)}
+                  disabled={isLoading}
+                >
+                  <Text className="text-center font-semibold text-medical-text-secondary">Go Back</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="flex-1 rounded-lg bg-red-700 p-3"
+                  onPress={() => {
+                    if (patientPendingFinalDelete) {
+                      void confirmDeletePatient(patientPendingFinalDelete);
+                    }
+                  }}
+                  disabled={isLoading}
+                >
+                  <Text className="text-center font-semibold text-white">Delete Patient</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
