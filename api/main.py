@@ -133,7 +133,13 @@ def dump_db(
     return {"filepaths": created_filepaths}
 
 @app.post("/sync/push", response_model=SyncPushResponse)
-def sync_push(req: SyncPushRequest):
+def sync_push(
+    req: SyncPushRequest,
+    x_device_key: Annotated[str | None, Header()] = None,
+):
+    if not x_device_key or x_device_key != settings.device_secret:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     results: list[SyncOpResult] = []
 
     with Session(DB_ENGINE) as session:
