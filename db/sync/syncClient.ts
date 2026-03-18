@@ -1,4 +1,5 @@
 export const API_BASE_URL = process.env.EXPO_PUBLIC_DATABASE_URL;
+export const DEVICE_SECRET = process.env.EXPO_PUBLIC_DEVICE_SECRET;
 
 export interface SyncOpWire {
     op_id: string;
@@ -11,9 +12,17 @@ export interface SyncOpWire {
 }
 
 export async function syncPush(device_id: string, ops: SyncOpWire[]) {
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+    };
+
+    if (DEVICE_SECRET) {
+        headers["X-Device-Key"] = DEVICE_SECRET;
+    }
+
     const resp = await fetch(`${API_BASE_URL}/sync/push`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ device_id, ops}),
     });
     if (!resp.ok) throw new Error(`sync/push failed: ${resp.status}`);
