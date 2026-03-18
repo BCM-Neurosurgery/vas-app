@@ -10,6 +10,7 @@ import { getEnergyEmoji, getPainEmoji, getRatingDescription, getRatingEmoji } fr
 import { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
+  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -349,27 +350,60 @@ export default function SimpleInterviewList({ patient, onInterviewSelect }: Simp
         title="Move Check-in"
         presentationStyle="formSheet"
       >
-        <View>
-          <Text className="mb-4 text-sm text-medical-text-secondary">
-            Choose the patient who should own this check-in.
-          </Text>
-          {availableMoveTargets.map((target) => (
+        <View
+          style={{ width: '92%', maxWidth: 520, maxHeight: '80%', alignSelf: 'center' }}
+          className="rounded-2xl bg-white"
+        >
+          <ScrollView
+            bounces={false}
+            contentContainerStyle={{ paddingTop: 12, paddingBottom: 12 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View className="mx-1 mb-4 rounded-2xl bg-sky-50 p-4">
+              <Text className="text-xs font-semibold uppercase tracking-widest text-sky-700">
+                Move Destination
+              </Text>
+              <Text className="mt-2 text-base font-semibold text-medical-text-primary">
+                Choose the patient who should own this check-in.
+              </Text>
+              {movingInterview && (
+                <Text className="mt-2 text-sm leading-5 text-medical-text-secondary">
+                  {formatDate(movingInterview.timestamp_start)} at {formatTime(movingInterview.timestamp_save)}
+                </Text>
+              )}
+            </View>
+
+            <View className="gap-3">
+              {availableMoveTargets.map((target) => (
+                <TouchableOpacity
+                  key={target.uuid}
+                  className="rounded-2xl border border-gray-200 bg-white px-4 py-4"
+                  onPress={() => handleMoveInterview(target)}
+                  disabled={isApplyingAction}
+                >
+                  <View className="flex-row items-center justify-between">
+                    <View>
+                      <Text className="text-base font-semibold text-medical-text-primary">{target.emu_id}</Text>
+                      <Text className="mt-1 text-sm text-medical-text-secondary">
+                        Move this check-in to this patient
+                      </Text>
+                    </View>
+                    <View className="rounded-full bg-sky-100 px-3 py-1">
+                      <Text className="text-xs font-semibold text-sky-700">Select</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             <TouchableOpacity
-              key={target.uuid}
-              className="mb-3 rounded-lg bg-medical-gray-light p-4"
-              onPress={() => handleMoveInterview(target)}
+              className="mt-4 items-center rounded-xl bg-medical-gray-light p-3"
+              onPress={() => setMovingInterview(null)}
               disabled={isApplyingAction}
             >
-              <Text className="text-base font-semibold text-medical-text-primary">{target.emu_id}</Text>
+              <Text className="text-sm font-semibold text-medical-text-secondary">Cancel</Text>
             </TouchableOpacity>
-          ))}
-          <TouchableOpacity
-            className="mt-2 items-center rounded-lg p-3"
-            onPress={() => setMovingInterview(null)}
-            disabled={isApplyingAction}
-          >
-            <Text className="text-sm text-medical-text-secondary">Cancel</Text>
-          </TouchableOpacity>
+          </ScrollView>
         </View>
       </CrossPlatformModal>
 
