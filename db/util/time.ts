@@ -7,5 +7,7 @@ export function toUtcIso(d: Date): string {
 }
 
 export function fromIsoToDate(iso: string): Date {
-  return new Date(iso);
+  const hasExplicitTimezone = /(?:Z|[+-]\d{2}:\d{2})$/.test(iso);
+  const normalized = hasExplicitTimezone ? iso : `${iso}Z`;
+  return new Date(normalized);
 }
