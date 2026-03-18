@@ -144,9 +144,35 @@ export const databaseAPI = {
 
   async createPatient(emuId: string): Promise<Patient> {
     const existingLocal = await patientRepo.getByEmuId(emuId);
-    if (existingLocal && !existingLocal.deleted_at_utc) {
-      await this.setAsLatest(existingLocal);
-      return (await patientRepo.getByUuid(existingLocal.uuid)) ?? existingLocal;
+    if (existingLocal) {
+      if (!existingLocal.deleted_at_utc) {
+        await this.setAsLatest(existingLocal);
+        return (await patientRepo.getByUuid(existingLocal.uuid)) ?? existingLocal;
+      }
+
+      const device_id = await getDeviceId();
+      const revivedPatient: Patient = {
+        ...existingLocal,
+        latest: true,
+        updated_at_utc: utcIsoNow(),
+        deleted_at_utc: null,
+      };
+
+      await withTransaction(async () => {
+        await patientRepo.restore(revivedPatient.uuid, revivedPatient.updated_at_utc);
+        await patientRepo.setLatest(revivedPatient.uuid);
+        await enqueueOutboxOp({
+          device_id,
+          entity_type: "Patient",
+          entity_uuid: revivedPatient.uuid,
+          op_type: "UPSERT",
+          scope_patient_uuid: revivedPatient.uuid,
+          payload: patientPayload(revivedPatient),
+        });
+      });
+
+      kickSync(revivedPatient.uuid);
+      return (await patientRepo.getByUuid(revivedPatient.uuid)) ?? revivedPatient;
     }
 
     const hydratedPatient = await hydratePatientFromServer(emuId);

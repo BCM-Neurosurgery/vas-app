@@ -91,6 +91,16 @@ export const patientRepo = {
         );
     },
 
+    async restore(uuid: string, updated_at_utc = utcIsoNow()): Promise<void> {
+        await runAsync(
+            `UPDATE patients
+             SET deleted_at_utc = NULL,
+                updated_at_utc = ?
+             WHERE uuid = ?`,
+            [updated_at_utc, uuid]
+        );
+    },
+
     async renameEmuId(uuid: string, emu_id: string, updated_at_utc = utcIsoNow()): Promise<void> {
         await runAsync(
             `UPDATE patients
