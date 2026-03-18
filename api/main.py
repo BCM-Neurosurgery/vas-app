@@ -8,10 +8,49 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 import os
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 
 app = FastAPI()
+
+
+def utc_iso(dt: datetime | None) -> str | None:
+    if dt is None:
+        return None
+
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+    return dt.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def serialize_patient(patient: Patient) -> dict:
+    return {
+        "id": patient.id,
+        "uuid": patient.uuid,
+        "emu_id": patient.emu_id,
+        "latest": patient.latest,
+        "updated_at_utc": utc_iso(patient.updated_at_utc),
+        "deleted_at_utc": utc_iso(patient.deleted_at_utc),
+    }
+
+
+def serialize_interview(interview: SimpleInterview) -> dict:
+    return {
+        "id": interview.id,
+        "uuid": interview.uuid,
+        "patient_id": interview.patient_id,
+        "patient_uuid": interview.patient_uuid,
+        "mood_rating": interview.mood_rating,
+        "energy_rating": interview.energy_rating,
+        "pain_rating": interview.pain_rating,
+        "task_name": interview.task_name,
+        "timestamp_start": utc_iso(interview.timestamp_start),
+        "timestamp_save": utc_iso(interview.timestamp_save),
+        "status": interview.status,
+        "updated_at_utc": utc_iso(interview.updated_at_utc),
+        "deleted_at_utc": utc_iso(interview.deleted_at_utc),
+    }
 
 # Add CORS middleware
 app.add_middleware(
@@ -250,7 +289,7 @@ def sync_bootstrap(emu_id: str):
         ).all()
 
         return {
-            "patient": patient.model_dump(),
+            "patient": serialize_patient(patient),
             "latest_change_id": latest_change_id,
-            "interviews": [i.model_dump() for i in interviews],
+            "interviews": [serialize_interview(i) for i in interviews],
         }
