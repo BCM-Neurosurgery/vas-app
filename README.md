@@ -261,7 +261,6 @@ runtime data, and local backend config are ignored by `.gitignore`.
 
 Before publishing the repository, add or confirm:
 
-- `LICENSE`
 - `CONTRIBUTING.md`
 - Optional `CODE_OF_CONDUCT.md`
 
@@ -270,5 +269,4 @@ and backend defaults to make sure they are appropriate for a public repo.
 
 ## License
 
-License information has not been added yet. Add a `LICENSE` file before public
-release and update this section to name the chosen license.
+This project is licensed under the MIT License. See `LICENSE` for details.
