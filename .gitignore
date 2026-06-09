@@ -36,6 +36,11 @@ yarn-error.*
 # logs
 logs/
 
+# Apptainer build/runtime artifacts
+apptainer/images/
+apptainer/data/
+apptainer/run/
+
 # typescript
 *.tsbuildinfo
 

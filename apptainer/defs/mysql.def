@@ -1,0 +1,15 @@
+Bootstrap: docker
+From: mysql:8.0
+
+%environment
+    export MYSQL_TCP_PORT=3390
+
+%runscript
+    if [ -n "${MYSQL_PORT:-}" ] && [ -z "${MYSQL_TCP_PORT:-}" ]; then
+        export MYSQL_TCP_PORT="$MYSQL_PORT"
+    fi
+
+    exec /usr/local/bin/docker-entrypoint.sh mysqld \
+        --bind-address=0.0.0.0 \
+        --port="${MYSQL_TCP_PORT:-3390}" \
+        --socket=/run/mysqld/mysqld.sock

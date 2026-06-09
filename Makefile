@@ -1,4 +1,4 @@
-.PHONY: help build up down restart logs clean db-reset
+.PHONY: help build up down restart logs clean db-reset apptainer-build apptainer-up apptainer-down apptainer-restart apptainer-status apptainer-logs apptainer-mysql apptainer-fastapi apptainer-shell apptainer-db-shell apptainer-migrate-volume
 
 # Default target
 help:
@@ -14,6 +14,19 @@ help:
 	@echo "  db-reset  - Reset the database (remove volume)"
 	@echo "  shell     - Open shell in FastAPI container"
 	@echo "  db-shell  - Open MySQL shell"
+	@echo ""
+	@echo "Apptainer commands:"
+	@echo "  apptainer-build          - Build Apptainer SIF images"
+	@echo "  apptainer-up             - Start MySQL and FastAPI Apptainer instances"
+	@echo "  apptainer-down           - Stop Apptainer instances"
+	@echo "  apptainer-restart        - Restart Apptainer instances"
+	@echo "  apptainer-status         - Show Apptainer instances"
+	@echo "  apptainer-logs           - List Apptainer log files"
+	@echo "  apptainer-mysql          - List MySQL log files"
+	@echo "  apptainer-fastapi        - List FastAPI log files"
+	@echo "  apptainer-shell          - Open shell in FastAPI image"
+	@echo "  apptainer-db-shell       - Open MySQL shell in running instance"
+	@echo "  apptainer-migrate-volume - Copy Docker MySQL volume into Apptainer data dir"
 
 # Build the Docker images
 build:
@@ -73,3 +86,46 @@ status:
 # Show service health
 health:
 	docker-compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+
+# Build Apptainer SIF images
+apptainer-build:
+	./apptainer/bin/build.sh
+
+# Start Apptainer services
+apptainer-up:
+	./apptainer/bin/up.sh
+
+# Stop Apptainer services
+apptainer-down:
+	./apptainer/bin/down.sh
+
+# Restart Apptainer services
+apptainer-restart: apptainer-down apptainer-up
+
+# Show Apptainer service status
+apptainer-status:
+	./apptainer/bin/status.sh
+
+# List Apptainer log files
+apptainer-logs:
+	./apptainer/bin/logs.sh
+
+# List MySQL log files
+apptainer-mysql:
+	./apptainer/bin/logs.sh mysql
+
+# List FastAPI log files
+apptainer-fastapi:
+	./apptainer/bin/logs.sh fastapi
+
+# Open shell in FastAPI image
+apptainer-shell:
+	./apptainer/bin/shell-api.sh
+
+# Open MySQL shell in running Apptainer instance
+apptainer-db-shell:
+	./apptainer/bin/shell-db.sh
+
+# Migrate Docker Compose MySQL volume into Apptainer data directory
+apptainer-migrate-volume:
+	./apptainer/bin/migrate-docker-volume.sh
