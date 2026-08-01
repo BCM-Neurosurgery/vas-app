@@ -42,3 +42,6 @@ logs/
 app-example
 
 api/config.py
+
+# apptainer images (large binaries, don't commit)
+apptainer/
