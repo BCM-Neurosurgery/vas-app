@@ -1,6 +1,6 @@
-# Docker Setup for CATDI App
+# Docker Setup for VAS App
 
-This directory contains the Docker configuration for running the CATDI FastAPI backend with MySQL database.
+This directory contains the Docker configuration for running the VAS FastAPI backend with MySQL database.
 
 ## 🚀 Quick Start
 
@@ -52,9 +52,9 @@ The following environment variables are set in the Docker Compose file:
 - `CATMH_ORG_ID`: Your CAT-MH API organization ID
 
 ### Database Credentials
-- **Database**: `catdi_db`
-- **User**: `catdi_user`
-- **Password**: `catdi_password`
+- **Database**: `vas_db`
+- **User**: `vas_user`
+- **Password**: `vas_password`
 - **Root Password**: `rootpassword`
 
 ## 📋 Available Commands
@@ -97,8 +97,8 @@ docker-compose up --build -d
 ### Access phpMyAdmin
 1. Open http://localhost:8080 in your browser
 2. Login with:
-   - Username: `catdi_user`
-   - Password: `catdi_password`
+   - Username: `vas_user`
+   - Password: `vas_password`
 
 ### Access MySQL Directly
 ```bash
@@ -106,7 +106,7 @@ docker-compose up --build -d
 make db-shell
 
 # Using Docker Compose
-docker-compose exec mysql mysql -u catdi_user -pcatdi_password catdi_db
+docker-compose exec mysql mysql -u vas_user -pvas_password vas_db
 ```
 
 ### Reset Database

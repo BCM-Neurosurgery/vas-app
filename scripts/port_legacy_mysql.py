@@ -10,8 +10,8 @@ import pymysql
 
 
 LEGACY_TZ = ZoneInfo("America/Chicago")
-PATIENT_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "catdi-legacy-patient")
-INTERVIEW_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "catdi-legacy-interview")
+PATIENT_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "vas-legacy-patient")
+INTERVIEW_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "vas-legacy-interview")
 
 
 def utcnow() -> datetime:

@@ -55,7 +55,7 @@ clean:
 # Reset database (remove volume)
 db-reset:
 	docker-compose down -v
-	docker volume rm catdi-app_mysql_data || true
+	docker volume rm vas-app_mysql_data || true
 	docker-compose up -d
 
 # Open shell in FastAPI container
@@ -64,7 +64,7 @@ shell:
 
 # Open MySQL shell
 db-shell:
-	docker-compose exec mysql mysql -u catdi_user -pcatdi_password catdi_db
+	docker-compose exec mysql mysql -u vas_user -pvas_password vas_db
 
 # Show service status
 status:

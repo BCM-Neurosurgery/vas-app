@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "catdi-app",
-    "slug": "catdi-app",
+    "name": "vas-app",
+    "slug": "vas-app",
     "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "catdiapp",
+    "scheme": "vasapp",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tahaismail424.catdiapp",
+      "bundleIdentifier": "com.tahaismail424.vasapp",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

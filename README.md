@@ -1,6 +1,6 @@
-# CATDI App
+# VAS App
 
-CATDI is a mobile daily check-in and interview app for patient-scoped mood,
+VAS is a mobile daily check-in and interview app for patient-scoped mood,
 energy, and pain ratings. The app is built with Expo and React Native, is
 primarily designed for iOS and iPadOS, and includes a FastAPI + MySQL backend
 for synchronization and data export.

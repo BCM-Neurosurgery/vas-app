@@ -4,7 +4,7 @@ echo "🧹 Cleaning up Docker containers and volumes..."
 docker-compose down -v
 
 echo "🗑️  Removing MySQL data volume..."
-docker volume rm catdi-app_mysql_data 2>/dev/null || echo "Volume not found or already removed"
+docker volume rm vas-app_mysql_data 2>/dev/null || echo "Volume not found or already removed"
 
 echo "🧽 Cleaning up any dangling containers/images..."
 docker system prune -f

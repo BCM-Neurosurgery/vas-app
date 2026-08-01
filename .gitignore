@@ -45,3 +45,9 @@ api/config.py
 
 # apptainer images (large binaries, don't commit)
 apptainer/
+
+# editor / python cache
+.vscode/
+__pycache__/
+.pycache/
+*.pyc
