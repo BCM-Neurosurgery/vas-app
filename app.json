@@ -2,14 +2,14 @@
   "expo": {
     "name": "vas-app",
     "slug": "vas-app",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "vasapp",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tahaismail424.vasapp",
+      "bundleIdentifier": "com.svc_nsgy_dev.vasapp",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -52,6 +52,6 @@
         "projectId": "9ecfd4bf-076e-48ee-ba7e-047fabb83911"
       }
     },
-    "owner": "tahaismail424"
+    "owner": "svc_nsgy_dev"
   }
 }
